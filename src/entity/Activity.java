@@ -11,6 +11,7 @@ public class Activity {
     private String endTime;
     private long publishedAt;
     private String status; // 活动状态: pending(未审核) approved(已通过) rejected(未通过)
+    private String location; // 活动地点
 
     public Activity(String activityId, String activityName, String description, String publisherId, int maxNum, String eventTime) {
         this.activityId = activityId;
@@ -63,6 +64,8 @@ public class Activity {
     public void setPublishedAt(long p){ publishedAt = p; }
     public String getStatus() { return status; }
     public void setStatus(String status) { this.status = status; }
+    public String getLocation() { return location; }
+    public void setLocation(String location) { this.location = location; }
 
     public void setActivityName(String activityName) { this.activityName = activityName; }
     public void setDescription(String description) { this.description = description; }

@@ -82,13 +82,16 @@ if(window.Vue){
       const regForm = reactive({ username: '', password: '', email: '' });
       const profile = reactive({ username: '', email: '', avatar: '/default-avatar.png' });
       const pwdForm = reactive({ oldPwd: '', newPwd: '' });
-      const pubForm = reactive({ activityId: '', name: '', desc: '', startTime: '', endTime: '', maxNum: 0 });
+      const pubForm = reactive({ activityId: '', name: '', desc: '', location: '', startTime: '', endTime: '', maxNum: 0 });
       const pubFormMsg = ref('');
       const myActs = ref([]);
       const myRegs = ref([]);
       const manageState = reactive({ activityId: '', regs: [], addUserId: '' });
       const selectedActivity = ref(null);
       const previousView = ref('activities'); // 用于返回上一个视图
+      const newUser = reactive({ username: '', password: '', email: '', role: 'user', errorMsg: '' }); // 新增用户表单
+      const userList = ref([]); // 用户列表
+      const editingUser = reactive({ userId: '', username: '', email: '', role: 'user' }); // 编辑中的用户
 
       const load = async ()=>{
         const res = await fetch('/api/activity/list');
@@ -116,6 +119,31 @@ if(window.Vue){
           pendingActivities.value = result;
         } else {
           pendingActivities.value = [];
+        }
+      };
+      
+      // 加载用户列表
+      const loadUserList = async () => {
+        if (!state.user || state.user.role !== 'admin') return;
+        try {
+          console.log('正在加载用户列表...');
+          const res = await fetch(`/api/admin/user/list?adminId=${state.user.userId}`);
+          console.log('用户列表响应状态:', res.status);
+          if (res.ok) {
+            const result = await res.json();
+            console.log('用户列表数据:', result);
+            if (Array.isArray(result)) {
+              userList.value = result;
+            } else {
+              userList.value = [];
+            }
+          } else {
+            console.error('加载用户列表失败，状态码:', res.status);
+            userList.value = [];
+          }
+        } catch (error) {
+          console.error('加载用户列表失败:', error);
+          userList.value = [];
         }
       };
       
@@ -253,12 +281,13 @@ if(window.Vue){
       };
       
       // 发布/编辑活动
-      const openPublish = ()=>{ state.view='publish'; pubForm.activityId=''; pubForm.name=''; pubForm.desc=''; pubForm.startTime=''; pubForm.endTime=''; pubForm.maxNum=0; pubFormMsg.value=''; };
+      const openPublish = ()=>{ state.view='publish'; pubForm.activityId=''; pubForm.name=''; pubForm.desc=''; pubForm.location=''; pubForm.startTime=''; pubForm.endTime=''; pubForm.maxNum=0; pubFormMsg.value=''; };
       const editAct = async (act)=>{ 
         state.view='publish'; 
         pubForm.activityId=act.activityId; 
         pubForm.name=act.activityName; 
         pubForm.desc=act.description; 
+        pubForm.location=act.location || '';
         pubFormMsg.value=''; 
         pubForm.startTime=''; 
         pubForm.endTime=''; 
@@ -305,7 +334,7 @@ if(window.Vue){
           return;
         }
         
-        const p=new URLSearchParams({name:pubForm.name,desc:pubForm.desc,publisherId:state.user.userId,startTime:pubForm.startTime,endTime:pubForm.endTime,maxNum:pubForm.maxNum});
+        const p=new URLSearchParams({name:pubForm.name,desc:pubForm.desc,location:pubForm.location,publisherId:state.user.userId,startTime:pubForm.startTime,endTime:pubForm.endTime,maxNum:pubForm.maxNum});
         const url = pubForm.activityId?'/api/activity/update':'/api/activity/publish';
         if(pubForm.activityId) p.append('activityId',pubForm.activityId);
         const r = await fetch(url,{method:'POST',body:p}); const d=await r.json();
@@ -424,6 +453,111 @@ if(window.Vue){
         state.view = viewName;
         if (viewName === 'activityManagement') {
           await loadAllActivities();
+        } else if (viewName === 'userManagement') {
+          await loadUserList();
+        }
+      };
+
+      // 管理员功能：创建用户
+      const createUser = async () => {
+        if (!state.user || state.user.role !== 'admin') {
+          notify('权限不足', 'danger');
+          return;
+        }
+        
+        if (!newUser.username || !newUser.password || !newUser.email) {
+          newUser.errorMsg = '请填写完整信息';
+          return;
+        }
+        
+        const p = new URLSearchParams({
+          adminId: state.user.userId,
+          username: newUser.username,
+          password: newUser.password,
+          email: newUser.email,
+          role: newUser.role
+        });
+        
+        const r = await fetch('/api/admin/user/create', {method: 'POST', body: p});
+        const d = await r.json();
+        
+        if (d.status === 0) {
+          notify('用户创建成功');
+          newUser.username = '';
+          newUser.password = '';
+          newUser.email = '';
+          newUser.role = 'user';
+          newUser.errorMsg = '';
+          await loadUserList();
+        } else {
+          newUser.errorMsg = d.msg || '创建失败';
+        }
+      };
+      
+      // 管理员功能：删除用户
+      const deleteUser = async (userId) => {
+        if (!state.user || state.user.role !== 'admin') {
+          notify('权限不足', 'danger');
+          return;
+        }
+        
+        if (!confirm('确认删除该用户？')) return;
+        
+        const p = new URLSearchParams({
+          adminId: state.user.userId,
+          userId: userId
+        });
+        
+        const r = await fetch('/api/admin/user/delete', {method: 'POST', body: p});
+        const d = await r.json();
+        
+        if (d.status === 0) {
+          notify('用户删除成功');
+          await loadUserList();
+        } else {
+          notify(d.msg || '删除失败', 'danger');
+        }
+      };
+      
+      // 管理员功能：编辑用户
+      const editUser = (user) => {
+        editingUser.userId = user.userId;
+        editingUser.username = user.username;
+        editingUser.email = user.email;
+        editingUser.role = user.role;
+        
+        // 显示模态框
+        const modal = new bootstrap.Modal(document.getElementById('editUserModal'));
+        modal.show();
+      };
+      
+      // 管理员功能：更新用户
+      const updateUser = async () => {
+        if (!state.user || state.user.role !== 'admin') {
+          notify('权限不足', 'danger');
+          return;
+        }
+        
+        const p = new URLSearchParams({
+          adminId: state.user.userId,
+          userId: editingUser.userId,
+          username: editingUser.username,
+          email: editingUser.email,
+          role: editingUser.role
+        });
+        
+        const r = await fetch('/api/admin/user/update', {method: 'POST', body: p});
+        const d = await r.json();
+        
+        if (d.status === 0) {
+          notify('用户信息更新成功');
+          // 隐藏模态框
+          const modalEl = document.getElementById('editUserModal');
+          const modal = bootstrap.Modal.getInstance(modalEl);
+          modal.hide();
+          await loadUserList();
+        } else {
+          notify(d.msg || '更新失败', 'danger');
         }
       };
 
@@ -444,6 +578,9 @@ if(window.Vue){
         manageState, 
         selectedActivity,
         previousView,
+        newUser, // 新增用户表单
+        userList, // 用户列表
+        editingUser, // 编辑中的用户
         load, 
         apply, 
         manage, 
@@ -473,7 +610,12 @@ if(window.Vue){
         getActivityStatusText,
         getActivityStatusClass,
         loadPendingActivities,
-        setView
+        setView,
+        loadUserList, // 加载用户列表
+        createUser, // 创建用户
+        deleteUser, // 删除用户
+        editUser, // 编辑用户
+        updateUser // 更新用户
       };
     }
   });

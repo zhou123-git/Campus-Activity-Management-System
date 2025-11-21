@@ -8,7 +8,7 @@ import java.util.*;
 
 public class ActivityService {
     // 发布活动（按顺序自增ID，记录开始/结束时间与发布时间）
-    public boolean publishActivity(String name, String desc, String publisherId, int maxNum, String eventTime, String startTime, String endTime, UserService userService) {
+    public boolean publishActivity(String name, String desc, String publisherId, int maxNum, String eventTime, String startTime, String endTime, String location, UserService userService) {
         String id = null;
         try(Connection conn = DB.getConn()){
             long publishedAt = System.currentTimeMillis();
@@ -30,7 +30,7 @@ public class ActivityService {
                 status = "pending"; // 普通用户发布的活动需要审核
             }
             
-            try(PreparedStatement p = conn.prepareStatement("INSERT INTO activity(id,name,description,publisher_id,max_num,event_time,start_time,end_time,published_at,status) VALUES(?,?,?,?,?,?,?,?,?,?)")){
+            try(PreparedStatement p = conn.prepareStatement("INSERT INTO activity(id,name,description,publisher_id,max_num,event_time,start_time,end_time,published_at,status,location) VALUES(?,?,?,?,?,?,?,?,?,?,?)")){
                 p.setString(1,id);
                 p.setString(2,name);
                 p.setString(3,desc);
@@ -41,6 +41,7 @@ public class ActivityService {
                 p.setString(8,endTime);
                 p.setLong(9,publishedAt);
                 p.setString(10,status);
+                p.setString(11,location);
                 p.executeUpdate();
                 return true;
             }
@@ -52,7 +53,7 @@ public class ActivityService {
         try(Connection conn = DB.getConn(); PreparedStatement p = conn.prepareStatement("SELECT * FROM activity WHERE status='approved' ORDER BY published_at ASC, CAST(id AS UNSIGNED) ASC")){
             ResultSet rs = p.executeQuery();
             while(rs.next()){
-                list.add(new Activity(
+                Activity activity = new Activity(
                     rs.getString("id"),
                     rs.getString("name"),
                     rs.getString("description"),
@@ -62,22 +63,25 @@ public class ActivityService {
                     rs.getString("start_time"),
                     rs.getString("end_time"),
                     rs.getLong("published_at"),
-                    rs.getString("status")));
+                    rs.getString("status"));
+                activity.setLocation(rs.getString("location"));
+                list.add(activity);
             }
         }catch(Exception e){e.printStackTrace();}
         return list;
     }
     // 更新活动（仅限发布者本人）
-    public boolean updateActivity(String activityId, String name, String desc, String publisherId, int maxNum, String eventTime, String startTime, String endTime) {
-        try(Connection conn = DB.getConn(); PreparedStatement p = conn.prepareStatement("UPDATE activity SET name=?,description=?,max_num=?,event_time=?,start_time=?,end_time=? WHERE id=? AND publisher_id=?")){
+    public boolean updateActivity(String activityId, String name, String desc, String publisherId, int maxNum, String eventTime, String startTime, String endTime, String location) {
+        try(Connection conn = DB.getConn(); PreparedStatement p = conn.prepareStatement("UPDATE activity SET name=?,description=?,max_num=?,event_time=?,start_time=?,end_time=?,location=? WHERE id=? AND publisher_id=?")){
             p.setString(1,name);
             p.setString(2,desc);
             p.setInt(3,maxNum);
             p.setString(4,eventTime);
             p.setString(5,startTime);
             p.setString(6,endTime);
-            p.setString(7,activityId);
-            p.setString(8,publisherId);
+            p.setString(7,location);
+            p.setString(8,activityId);
+            p.setString(9,publisherId);
             return p.executeUpdate()>0;
         }catch(Exception e){e.printStackTrace(); return false;}
     }
@@ -98,6 +102,7 @@ public class ActivityService {
                     rs.getString("end_time"),
                     rs.getLong("published_at"),
                     rs.getString("status"));
+                activity.setLocation(rs.getString("location"));
                 System.out.println("找到活动: " + activityId);
                 return activity;
             } else {
@@ -116,7 +121,7 @@ public class ActivityService {
             p.setString(1, publisherId);
             ResultSet rs = p.executeQuery();
             while(rs.next()){
-                list.add(new Activity(
+                Activity activity = new Activity(
                     rs.getString("id"),
                     rs.getString("name"),
                     rs.getString("description"),
@@ -126,7 +131,9 @@ public class ActivityService {
                     rs.getString("start_time"),
                     rs.getString("end_time"),
                     rs.getLong("published_at"),
-                    rs.getString("status")));
+                    rs.getString("status"));
+                activity.setLocation(rs.getString("location"));
+                list.add(activity);
             }
         }catch(Exception e){e.printStackTrace();}
         return list;
@@ -219,7 +226,7 @@ public class ActivityService {
         try(Connection conn = DB.getConn(); PreparedStatement p = conn.prepareStatement("SELECT * FROM activity WHERE status='pending' ORDER BY published_at ASC, CAST(id AS UNSIGNED) ASC")){
             ResultSet rs = p.executeQuery();
             while(rs.next()){
-                list.add(new Activity(
+                Activity activity = new Activity(
                     rs.getString("id"),
                     rs.getString("name"),
                     rs.getString("description"),
@@ -229,7 +236,9 @@ public class ActivityService {
                     rs.getString("start_time"),
                     rs.getString("end_time"),
                     rs.getLong("published_at"),
-                    rs.getString("status")));
+                    rs.getString("status"));
+                activity.setLocation(rs.getString("location"));
+                list.add(activity);
             }
         }catch(Exception e){e.printStackTrace();}
         return list;
@@ -241,7 +250,7 @@ public class ActivityService {
         try(Connection conn = DB.getConn(); PreparedStatement p = conn.prepareStatement("SELECT * FROM activity ORDER BY published_at ASC, CAST(id AS UNSIGNED) ASC")){
             ResultSet rs = p.executeQuery();
             while(rs.next()){
-                list.add(new Activity(
+                Activity activity = new Activity(
                     rs.getString("id"),
                     rs.getString("name"),
                     rs.getString("description"),
@@ -251,7 +260,9 @@ public class ActivityService {
                     rs.getString("start_time"),
                     rs.getString("end_time"),
                     rs.getLong("published_at"),
-                    rs.getString("status")));
+                    rs.getString("status"));
+                activity.setLocation(rs.getString("location"));
+                list.add(activity);
             }
         }catch(Exception e){e.printStackTrace();}
         return list;

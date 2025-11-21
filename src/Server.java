@@ -62,6 +62,11 @@ public class Server {
         server.createContext("/api/activity/pending", Server::handlePendingActivities);
         // 管理端查询所有活动
         server.createContext("/api/activity/all", Server::handleAllActivities);
+        // 管理员用户管理功能
+        server.createContext("/api/admin/user/create", Server::handleAdminCreateUser);
+        server.createContext("/api/admin/user/delete", Server::handleAdminDeleteUser);
+        server.createContext("/api/admin/user/update", Server::handleAdminUpdateUser);
+        server.createContext("/api/admin/user/list", Server::handleAdminListUsers);
         // 静态资源处理
         server.createContext("/", Server::handleStaticResource);
         server.createContext("/index.html", Server::handleStaticResource);
@@ -147,6 +152,7 @@ public class Server {
             eventTime,
             map.getOrDefault("startTime",""),
             map.getOrDefault("endTime", ""),
+            map.getOrDefault("location", ""),
             userService
         );
         resp(t, ok ? "{\"status\":0}" : "{\"status\":1,\"msg\":\"发布失败\"}");
@@ -162,8 +168,8 @@ public class Server {
             // 获取发布者用户名而不是ID
             User publisher = userService.getUserInfo(a.getPublisherId());
             String publisherName = publisher != null ? publisher.getUsername() : "未知用户";
-            sb.append(String.format("{\"activityId\":\"%s\",\"activityName\":\"%s\",\"description\":\"%s\",\"publisherId\":\"%s\",\"publisherName\":\"%s\",\"maxNum\":%d,\"count\":%d,\"eventTime\":\"%s\",\"startTime\":\"%s\",\"endTime\":\"%s\",\"status\":\"%s\"}",
-                a.getActivityId(),a.getActivityName(),a.getDescription(),a.getPublisherId(),publisherName,a.getMaxNum(),count,a.getEventTime(),a.getStartTime(),a.getEndTime(),a.getStatus()));
+            sb.append(String.format("{\"activityId\":\"%s\",\"activityName\":\"%s\",\"description\":\"%s\",\"publisherId\":\"%s\",\"publisherName\":\"%s\",\"maxNum\":%d,\"count\":%d,\"eventTime\":\"%s\",\"startTime\":\"%s\",\"endTime\":\"%s\",\"status\":\"%s\",\"location\":\"%s\"}",
+                a.getActivityId(),a.getActivityName(),a.getDescription(),a.getPublisherId(),publisherName,a.getMaxNum(),count,a.getEventTime(),a.getStartTime(),a.getEndTime(),a.getStatus(),a.getLocation()));
             if(i<acts.size()-1) sb.append(",\n");
         }
         sb.append("]");
@@ -183,7 +189,8 @@ public class Server {
             Integer.parseInt(map.getOrDefault("maxNum","30")),
             eventTime,
             map.getOrDefault("startTime",""),
-            map.getOrDefault("endTime", "")
+            map.getOrDefault("endTime", ""),
+            map.getOrDefault("location", "")
         );
         resp(t, ok ? "{\"status\":0}" : "{\"status\":1,\"msg\":\"更新失败或无权限\"}");
     }
@@ -316,8 +323,8 @@ public class Server {
             // 获取发布者用户名而不是ID
             User publisher = userService.getUserInfo(a.getPublisherId());
             String publisherName = publisher != null ? publisher.getUsername() : "未知用户";
-            sb.append(String.format("{\"activityId\":\"%s\",\"activityName\":\"%s\",\"description\":\"%s\",\"publisherId\":\"%s\",\"publisherName\":\"%s\",\"status\":\"%s\"}", 
-                a.getActivityId(),a.getActivityName(),a.getDescription(),a.getPublisherId(),publisherName,a.getStatus()));
+            sb.append(String.format("{\"activityId\":\"%s\",\"activityName\":\"%s\",\"description\":\"%s\",\"publisherId\":\"%s\",\"publisherName\":\"%s\",\"status\":\"%s\",\"location\":\"%s\"}", 
+                a.getActivityId(),a.getActivityName(),a.getDescription(),a.getPublisherId(),publisherName,a.getStatus(),a.getLocation()));
             if(i<acts.size()-1) sb.append(",\n");
         }
         sb.append("]");
@@ -353,8 +360,13 @@ public class Server {
             // 获取用户名而不是用户ID
             User user = userService.getUserInfo(r.getUserId());
             String username = user != null ? user.getUsername() : r.getUserId();
-            sb.append(String.format("{\"registrationId\":\"%s\",\"userId\":\"%s\",\"username\":\"%s\",\"activityId\":\"%s\",\"status\":\"%s\"}",
-                r.getRegistrationId(), r.getUserId(), username, r.getActivityId(), r.getStatus()));
+            
+            // 获取活动信息以获取活动名称
+            Activity activity = activityService.getActivity(r.getActivityId());
+            String activityName = activity != null ? activity.getActivityName() : "未知活动";
+            
+            sb.append(String.format("{\"registrationId\":\"%s\",\"userId\":\"%s\",\"username\":\"%s\",\"activityId\":\"%s\",\"activityName\":\"%s\",\"status\":\"%s\"}",
+                r.getRegistrationId(), r.getUserId(), username, r.getActivityId(), activityName, r.getStatus()));
             if(i<regs.size()-1) sb.append(",");
         }
         sb.append("]");
@@ -421,8 +433,8 @@ public class Server {
             // 获取发布者用户名而不是ID
             User publisher = userService.getUserInfo(a.getPublisherId());
             String publisherName = publisher != null ? publisher.getUsername() : "未知用户";
-            sb.append(String.format("{\"activityId\":\"%s\",\"activityName\":\"%s\",\"description\":\"%s\",\"publisherId\":\"%s\",\"publisherName\":\"%s\",\"maxNum\":%d,\"count\":%d,\"eventTime\":\"%s\",\"startTime\":\"%s\",\"endTime\":\"%s\",\"status\":\"%s\"}",
-                a.getActivityId(),a.getActivityName(),a.getDescription(),a.getPublisherId(),publisherName,a.getMaxNum(),count,a.getEventTime(),a.getStartTime(),a.getEndTime(), a.getStatus()));
+            sb.append(String.format("{\"activityId\":\"%s\",\"activityName\":\"%s\",\"description\":\"%s\",\"publisherId\":\"%s\",\"publisherName\":\"%s\",\"maxNum\":%d,\"count\":%d,\"eventTime\":\"%s\",\"startTime\":\"%s\",\"endTime\":\"%s\",\"status\":\"%s\",\"location\":\"%s\"}",
+                a.getActivityId(),a.getActivityName(),a.getDescription(),a.getPublisherId(),publisherName,a.getMaxNum(),count,a.getEventTime(),a.getStartTime(),a.getEndTime(), a.getStatus(),a.getLocation()));
             if(i<acts.size()-1) sb.append(",\n");
         }
         sb.append("]");
@@ -453,8 +465,8 @@ public class Server {
             // 获取发布者用户名而不是ID
             User publisher = userService.getUserInfo(a.getPublisherId());
             String publisherName = publisher != null ? publisher.getUsername() : "未知用户";
-            sb.append(String.format("{\"activityId\":\"%s\",\"activityName\":\"%s\",\"description\":\"%s\",\"publisherId\":\"%s\",\"publisherName\":\"%s\",\"maxNum\":%d,\"count\":%d,\"eventTime\":\"%s\",\"startTime\":\"%s\",\"endTime\":\"%s\",\"status\":\"%s\"}",
-                a.getActivityId(),a.getActivityName(),a.getDescription(),a.getPublisherId(),publisherName,a.getMaxNum(),count,a.getEventTime(),a.getStartTime(),a.getEndTime(), a.getStatus()));
+            sb.append(String.format("{\"activityId\":\"%s\",\"activityName\":\"%s\",\"description\":\"%s\",\"publisherId\":\"%s\",\"publisherName\":\"%s\",\"maxNum\":%d,\"count\":%d,\"eventTime\":\"%s\",\"startTime\":\"%s\",\"endTime\":\"%s\",\"status\":\"%s\",\"location\":\"%s\"}",
+                a.getActivityId(),a.getActivityName(),a.getDescription(),a.getPublisherId(),publisherName,a.getMaxNum(),count,a.getEventTime(),a.getStartTime(),a.getEndTime(), a.getStatus(),a.getLocation()));
             if(i<acts.size()-1) sb.append(",\n");
         }
         sb.append("]");
@@ -478,5 +490,124 @@ public class Server {
         t.sendResponseHeaders(200, data.length);
         t.getResponseBody().write(data);
         t.getResponseBody().close();
+    }
+    
+    // 管理员功能：创建用户
+    static void handleAdminCreateUser(HttpExchange t) throws IOException {
+        if (t.getRequestMethod().equals("OPTIONS")) { allowCORS(t); t.sendResponseHeaders(200, -1); return; }
+        
+        String body = readReqBody(t);
+        Map<String,String> map = parseUrlEncoded(body);
+        
+        // 获取当前用户信息并检查权限
+        String adminId = map.get("adminId");
+        User admin = userService.getUserInfo(adminId);
+        if (admin == null || !"admin".equals(admin.getRole())) {
+            resp(t, "{\"status\":1,\"msg\":\"权限不足\"}");
+            return;
+        }
+        
+        // 创建用户
+        int result = userService.createUserByAdmin(
+            map.get("username"), 
+            map.get("password"), 
+            map.get("email"), 
+            map.getOrDefault("role", "user"));
+            
+        switch(result) {
+            case 0: resp(t, "{\"status\":0}"); break;
+            case 1: resp(t, "{\"status\":1,\"msg\":\"用户名已存在\"}"); break;
+            case 2: resp(t, "{\"status\":1,\"msg\":\"邮箱格式不正确\"}"); break;
+            default: resp(t, "{\"status\":1,\"msg\":\"创建失败\"}"); break;
+        }
+    }
+    
+    // 管理员功能：删除用户
+    static void handleAdminDeleteUser(HttpExchange t) throws IOException {
+        if (t.getRequestMethod().equals("OPTIONS")) { allowCORS(t); t.sendResponseHeaders(200, -1); return; }
+        
+        String body = readReqBody(t);
+        Map<String,String> map = parseUrlEncoded(body);
+        
+        // 获取当前用户信息并检查权限
+        String adminId = map.get("adminId");
+        User admin = userService.getUserInfo(adminId);
+        if (admin == null || !"admin".equals(admin.getRole())) {
+            resp(t, "{\"status\":1,\"msg\":\"权限不足\"}");
+            return;
+        }
+        
+        // 不能删除自己
+        if (adminId.equals(map.get("userId"))) {
+            resp(t, "{\"status\":1,\"msg\":\"不能删除自己\"}");
+            return;
+        }
+        
+        // 删除用户
+        boolean ok = userService.deleteUserByAdmin(map.get("userId"));
+        resp(t, ok ? "{\"status\":0}" : "{\"status\":1,\"msg\":\"删除失败\"}");
+    }
+    
+    // 管理员功能：更新用户信息
+    static void handleAdminUpdateUser(HttpExchange t) throws IOException {
+        if (t.getRequestMethod().equals("OPTIONS")) { allowCORS(t); t.sendResponseHeaders(200, -1); return; }
+        
+        String body = readReqBody(t);
+        Map<String,String> map = parseUrlEncoded(body);
+        
+        // 获取当前用户信息并检查权限
+        String adminId = map.get("adminId");
+        User admin = userService.getUserInfo(adminId);
+        if (admin == null || !"admin".equals(admin.getRole())) {
+            resp(t, "{\"status\":1,\"msg\":\"权限不足\"}");
+            return;
+        }
+        
+        // 更新用户信息
+        boolean ok = userService.updateUserByAdmin(
+            map.get("userId"), 
+            map.get("username"), 
+            map.get("email"), 
+            map.getOrDefault("role", "user"));
+            
+        resp(t, ok ? "{\"status\":0}" : "{\"status\":1,\"msg\":\"更新失败，用户名可能已存在\"}");
+    }
+    
+    // 管理员功能：获取用户列表
+    static void handleAdminListUsers(HttpExchange t) throws IOException {
+        allowCORS(t);
+        
+        // 获取查询参数
+        String q = t.getRequestURI().getQuery();
+        String adminId = "";
+        if(q!=null && q.startsWith("adminId=")) adminId = q.substring(8);
+        
+        System.out.println("请求用户列表，adminId: " + adminId);
+        
+        // 获取当前用户信息并检查权限
+        User admin = userService.getUserInfo(adminId);
+        System.out.println("获取到的管理员用户: " + (admin != null ? admin.getUsername() + "(" + admin.getRole() + ")" : "null"));
+        
+        if (admin == null || !"admin".equals(admin.getRole())) {
+            System.out.println("权限不足，admin=" + admin + ", role=" + (admin != null ? admin.getRole() : "N/A"));
+            resp(t, "{\"status\":1,\"msg\":\"权限不足\"}");
+            return;
+        }
+        
+        // 获取所有用户
+        List<User> users = userService.getAllUsers();
+        System.out.println("获取到的用户数量: " + users.size());
+        
+        StringBuilder sb = new StringBuilder();
+        sb.append("[");
+        for(int i=0;i<users.size();i++){
+            User u = users.get(i);
+            sb.append(String.format("{\"userId\":\"%s\",\"username\":\"%s\",\"email\":\"%s\",\"role\":\"%s\"}",
+                u.getUserId(), u.getUsername(), u.getEmail(), u.getRole()));
+            if(i<users.size()-1) sb.append(",");
+        }
+        sb.append("]");
+        System.out.println("返回的用户数据: " + sb.toString());
+        resp(t, sb.toString());
     }
 }

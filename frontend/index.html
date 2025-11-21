@@ -253,6 +253,7 @@
           <button class="ant-btn ant-btn-primary me-2 tw-transition" @click="openPublish()">发布活动</button>
           <button class="ant-btn ant-btn-primary me-2 tw-transition" @click="state.view='myact'">我的活动</button>
           <button v-if="state.user.role === 'admin'" class="ant-btn ant-btn-primary me-2 tw-transition" @click="setView('activityManagement')">活动管理</button>
+          <button v-if="state.user.role === 'admin'" class="ant-btn ant-btn-primary me-2 tw-transition" @click="setView('userManagement')">用户管理</button>
           <button class="ant-btn ant-btn-primary me-2 tw-transition" @click="state.view='myreg'">我的报名</button>
           <button class="ant-btn ant-btn-primary me-2 tw-transition" @click="state.view='user'">我的信息</button>
           <button class="ant-btn ant-btn-danger tw-transition" @click="logout">退出</button>
@@ -288,6 +289,10 @@
               <p class="text-gray-500 text-sm mb-2">
                 <i class="far fa-calendar-alt mr-2"></i>
                 时间：{{ (a.startTime||'').replace('T',' ') }} ~ {{ (a.endTime||'').replace('T',' ') }}
+              </p>
+              <p class="text-gray-500 text-sm mb-2">
+                <i class="fas fa-map-marker-alt mr-2"></i>
+                地点：{{ a.location }}
               </p>
               <p class="text-gray-500 text-sm mb-2">
                 <i class="fas fa-users mr-2"></i>
@@ -331,6 +336,10 @@
               <p class="text-gray-500 text-sm mb-2">
                 <i class="far fa-calendar-alt mr-2"></i>
                 时间：{{ (a.startTime||'').replace('T',' ') }} ~ {{ (a.endTime||'').replace('T',' ') }}
+              </p>
+              <p class="text-gray-500 text-sm mb-2">
+                <i class="fas fa-map-marker-alt mr-2"></i>
+                地点：{{ a.location }}
               </p>
               <p class="text-gray-500 text-sm mb-2">
                 <i class="fas fa-users mr-2"></i>
@@ -382,6 +391,10 @@
       </div>
 
       <div class="activity-info">
+        <strong>活动地点:</strong> {{ selectedActivity.location }}
+      </div>
+
+      <div class="activity-info">
         <strong>报名人数:</strong> {{ selectedActivity.count||0 }}/{{ selectedActivity.maxNum||0 }}
       </div>
 
@@ -389,12 +402,12 @@
         <strong>发布者:</strong> {{ selectedActivity.publisherName || selectedActivity.publisherId }}
       </div>
 
-      <div class="activity-info">
-        <strong>状态:</strong> 
-        <span v-if="selectedActivity.status === 'pending'" class="bg-amber-100 text-amber-800 text-xs font-semibold px-2.5 py-0.5 rounded-full">待审核</span>
-        <span v-else-if="selectedActivity.status === 'approved'" class="bg-emerald-100 text-emerald-800 text-xs font-semibold px-2.5 py-0.5 rounded-full">已通过</span>
-        <span v-else class="bg-rose-100 text-rose-800 text-xs font-semibold px-2.5 py-0.5 rounded-full">已拒绝</span>
-      </div>
+<!--      <div class="activity-info">-->
+<!--        <strong>状态:</strong> -->
+<!--        <span v-if="selectedActivity.status === 'pending'" class="bg-amber-100 text-amber-800 text-xs font-semibold px-2.5 py-0.5 rounded-full">待审核</span>-->
+<!--        <span v-else-if="selectedActivity.status === 'approved'" class="bg-emerald-100 text-emerald-800 text-xs font-semibold px-2.5 py-0.5 rounded-full">已通过</span>-->
+<!--        <span v-else class="bg-rose-100 text-rose-800 text-xs font-semibold px-2.5 py-0.5 rounded-full">已拒绝</span>-->
+<!--      </div>-->
 
       <div class="activity-description">
         <h5>活动简介</h5>
@@ -411,6 +424,119 @@
       </div>
     </div>
 
+    <!-- 用户管理界面 -->
+    <div class="card shadow centered p-4 mt-4" v-if="state.view==='userManagement' && state.user && state.user.role === 'admin'">
+      <h5 class="mb-3 text-blue-500 font-bold text-lg">用户管理</h5>
+      
+      <!-- 添加用户表单 -->
+      <div class="card mb-4">
+        <div class="card-header">
+          <h6 class="mb-0">添加新用户</h6>
+        </div>
+        <div class="card-body">
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div>
+              <label class="form-label small text-muted">用户名</label>
+              <input class="form-control" v-model.trim="newUser.username" placeholder="用户名">
+            </div>
+            <div>
+              <label class="form-label small text-muted">密码</label>
+              <input type="password" class="form-control" v-model.trim="newUser.password" placeholder="密码">
+            </div>
+            <div>
+              <label class="form-label small text-muted">邮箱</label>
+              <input class="form-control" v-model.trim="newUser.email" placeholder="邮箱">
+            </div>
+            <div>
+              <label class="form-label small text-muted">角色</label>
+              <select class="form-control" v-model="newUser.role">
+                <option value="user">普通用户</option>
+                <option value="admin">管理员</option>
+              </select>
+            </div>
+          </div>
+          <div class="mt-3">
+            <button class="ant-btn ant-btn-primary" @click="createUser">添加用户</button>
+            <div class="small text-danger mt-2" v-if="newUser.errorMsg">{{ newUser.errorMsg }}</div>
+          </div>
+        </div>
+      </div>
+      
+      <!-- 用户列表 -->
+      <div class="card">
+        <div class="card-header">
+          <h6 class="mb-0">用户列表</h6>
+        </div>
+        <div class="card-body">
+          <div class="overflow-x-auto">
+            <table class="table table-bordered text-center align-middle">
+              <thead>
+                <tr>
+                  <th>用户ID</th>
+                  <th>用户名</th>
+                  <th>邮箱</th>
+                  <th>角色</th>
+                  <th>操作</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="user in userList" :key="user.userId">
+                  <td>{{ user.userId }}</td>
+                  <td>{{ user.username }}</td>
+                  <td>{{ user.email }}</td>
+                  <td>
+                    <span v-if="user.role === 'admin'" class="bg-blue-100 text-blue-800 text-xs font-semibold px-2.5 py-0.5 rounded-full">管理员</span>
+                    <span v-else class="bg-gray-100 text-gray-800 text-xs font-semibold px-2.5 py-0.5 rounded-full">普通用户</span>
+                  </td>
+                  <td>
+                    <button class="ant-btn ant-btn-warning ant-btn-sm me-1" @click="editUser(user)">编辑</button>
+                    <button class="ant-btn ant-btn-danger ant-btn-sm" @click="deleteUser(user.userId)" :disabled="user.userId === state.user.userId">删除</button>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- 编辑用户模态框 -->
+    <div class="modal fade" id="editUserModal" tabindex="-1" v-if="state.view==='userManagement' && state.user && state.user.role === 'admin'">
+      <div class="modal-dialog">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title">编辑用户</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+          </div>
+          <div class="modal-body">
+            <div class="mb-3">
+              <label class="form-label">用户ID</label>
+              <input class="form-control" v-model="editingUser.userId" readonly>
+            </div>
+            <div class="mb-3">
+              <label class="form-label">用户名</label>
+              <input class="form-control" v-model="editingUser.username">
+            </div>
+            <div class="mb-3">
+              <label class="form-label">邮箱</label>
+              <input class="form-control" v-model="editingUser.email">
+            </div>
+            <div class="mb-3">
+              <label class="form-label">角色</label>
+              <select class="form-control" v-model="editingUser.role">
+                <option value="user">普通用户</option>
+                <option value="admin">管理员</option>
+              </select>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="ant-btn ant-btn-default" data-bs-dismiss="modal">取消</button>
+            <button type="button" class="ant-btn ant-btn-primary" @click="updateUser">保存</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    
     <!-- 登录 -->
     <div class="auth-card auth-minimal p-1" v-if="state.view==='login'">
       <button class="ant-btn ant-btn-default back-button" @click="state.view='welcome'">&laquo; 返回</button>
@@ -502,6 +628,8 @@
       <input class="form-control mb-2" v-model.trim="pubForm.name" placeholder="活动名称">
       <label class="form-label small text-muted">活动简介</label>
       <input class="form-control mb-2" v-model.trim="pubForm.desc" placeholder="活动简介">
+      <label class="form-label small text-muted">活动地点</label>
+      <input class="form-control mb-2" v-model.trim="pubForm.location" placeholder="活动地点">
       <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
         <div>
           <label class="form-label small text-muted">开始时间</label>
@@ -556,11 +684,12 @@
       <div v-if="myRegs.length===0" class="text-muted">暂无报名记录</div>
       <div class="overflow-x-auto">
         <table class="table table-bordered text-center align-middle">
-          <thead><tr><th>报名ID</th><th>活动ID</th><th>状态</th></tr></thead>
+          <thead><tr><th>报名ID</th><th>活动ID</th><th>活动名称</th><th>状态</th></tr></thead>
           <tbody>
             <tr v-for="r in myRegs" :key="r.registrationId">
               <td><code>{{ r.username || r.userId }}</code></td>
               <td><a href="javascript:void(0)" @click="viewActivityFromReg(r.activityId)">{{ r.activityId.slice(0,8) }}</a></td>
+              <td>{{ r.activityName }}</td>
               <td>
                 <span v-if="r.status === '已申请'" class="bg-amber-100 text-amber-800 text-xs font-semibold px-2.5 py-0.5 rounded-full">已申请</span>
                 <span v-else-if="r.status === '已通过'" class="bg-emerald-100 text-emerald-800 text-xs font-semibold px-2.5 py-0.5 rounded-full">已通过</span>

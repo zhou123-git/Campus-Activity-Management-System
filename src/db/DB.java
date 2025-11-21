@@ -22,12 +22,13 @@ public class DB {
             s.executeUpdate("CREATE TABLE IF NOT EXISTS user (id VARCHAR(8) PRIMARY KEY, username VARCHAR(64) NOT NULL UNIQUE, password VARCHAR(64), email VARCHAR(128), avatar VARCHAR(255), role VARCHAR(32) DEFAULT 'user') ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;");
             try{ s.executeUpdate("ALTER TABLE user ADD COLUMN role VARCHAR(32) DEFAULT 'user'"); }catch(Exception ignore){}
             // 活动activity表（新增列）
-            s.executeUpdate("CREATE TABLE IF NOT EXISTS activity (id VARCHAR(36) PRIMARY KEY, name VARCHAR(128), description VARCHAR(512), publisher_id VARCHAR(8), max_num INT, event_time VARCHAR(256), status VARCHAR(32) DEFAULT 'approved') ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;");
+            s.executeUpdate("CREATE TABLE IF NOT EXISTS activity (id VARCHAR(36) PRIMARY KEY, name VARCHAR(128), description VARCHAR(512), publisher_id VARCHAR(8), max_num INT, event_time VARCHAR(256), status VARCHAR(32) DEFAULT 'approved', location VARCHAR(256)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;");
             try{ s.executeUpdate("ALTER TABLE activity MODIFY event_time VARCHAR(256)"); }catch(Exception ignore){}
             try{ s.executeUpdate("ALTER TABLE activity ADD COLUMN start_time VARCHAR(32)"); }catch(Exception ignore){}
             try{ s.executeUpdate("ALTER TABLE activity ADD COLUMN end_time VARCHAR(32)"); }catch(Exception ignore){}
             try{ s.executeUpdate("ALTER TABLE activity ADD COLUMN published_at BIGINT"); }catch(Exception ignore){}
             try{ s.executeUpdate("ALTER TABLE activity ADD COLUMN status VARCHAR(32) DEFAULT 'approved'"); }catch(Exception ignore){}
+            try{ s.executeUpdate("ALTER TABLE activity ADD COLUMN location VARCHAR(256)"); }catch(Exception ignore){}
             // 报名registration表 (修改id和user_id字段长度以适应UUID)
             s.executeUpdate("CREATE TABLE IF NOT EXISTS registration (id VARCHAR(36) PRIMARY KEY, user_id VARCHAR(36), activity_id VARCHAR(36), status VARCHAR(32)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;");
             // 一次性清空旧活动数据（若需要）
