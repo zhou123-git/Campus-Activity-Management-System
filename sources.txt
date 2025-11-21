@@ -1,0 +1,12 @@
+D:\code\test_000\src\App.java
+D:\code\test_000\src\Server.java
+D:\code\test_000\src\db\DB.java
+D:\code\test_000\src\entity\Activity.java
+D:\code\test_000\src\entity\Registration.java
+D:\code\test_000\src\entity\User.java
+D:\code\test_000\src\service\ActivityService.java
+D:\code\test_000\src\service\RegistrationService.java
+D:\code\test_000\src\service\UserService.java
+D:\code\test_000\src\storage\ActivityStorage.java
+D:\code\test_000\src\storage\RegistrationStorage.java
+D:\code\test_000\src\storage\UserStorage.java

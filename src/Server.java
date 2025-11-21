@@ -1,0 +1,482 @@
+import com.sun.net.httpserver.HttpServer;
+import com.sun.net.httpserver.HttpExchange;
+import com.sun.net.httpserver.Headers;
+import service.UserService;
+import service.ActivityService;
+import service.RegistrationService;
+import entity.User;
+import entity.Activity;
+import entity.Registration;
+
+import java.io.OutputStream;
+import java.io.InputStream;
+import java.io.IOException;
+import java.io.ByteArrayOutputStream;
+import java.net.InetSocketAddress;
+import java.net.URLDecoder;
+import java.nio.charset.StandardCharsets;
+import java.util.*;
+
+public class Server {
+    static UserService userService = new UserService();
+    static ActivityService activityService = new ActivityService();
+    static RegistrationService registrationService = new RegistrationService();
+
+    public static void main(String[] args) throws Exception {
+        HttpServer server = HttpServer.create(new InetSocketAddress(8000), 0);
+        // 用户注册
+        server.createContext("/api/register", Server::handleRegister);
+        // 用户登录
+        server.createContext("/api/login", Server::handleLogin);
+        // 活动发布
+        server.createContext("/api/activity/publish", Server::handleActivityPublish);
+        // 活动列表
+        server.createContext("/api/activity/list", Server::handleActivityList);
+        // 活动修改
+        server.createContext("/api/activity/update", Server::handleActivityUpdate);
+        // 报名提交
+        server.createContext("/api/registration/apply", Server::handleRegistrationApply);
+        // 报名审核
+        server.createContext("/api/registration/review", Server::handleRegistrationReview);
+        // 活动下所有报名
+        server.createContext("/api/registration/list", Server::handleRegistrationList);
+        // 查询当前用户信息
+        server.createContext("/api/user/info", Server::handleUserInfo);
+        // 修改当前用户信息
+        server.createContext("/api/user/update", Server::handleUserUpdate);
+        // 修改密码
+        server.createContext("/api/user/changePwd", Server::handleUserChangePwd);
+        // 查询我发布的活动
+        server.createContext("/api/activity/my", Server::handleActivityMy);
+        // 删除活动
+        server.createContext("/api/activity/delete", Server::handleActivityDelete);
+        // 查询我报名的活动
+        server.createContext("/api/registration/my", Server::handleRegistrationMy);
+        // 用户头像上传
+        server.createContext("/api/user/avatarUpload", Server::handleAvatarUpload);
+        // 管理端增删报名
+        server.createContext("/api/registration/add", Server::handleRegistrationAdd);
+        server.createContext("/api/registration/delete", Server::handleRegistrationDelete);
+        // 管理端审核活动
+        server.createContext("/api/activity/review", Server::handleActivityReview);
+        server.createContext("/api/activity/pending", Server::handlePendingActivities);
+        // 管理端查询所有活动
+        server.createContext("/api/activity/all", Server::handleAllActivities);
+        // 静态资源处理
+        server.createContext("/", Server::handleStaticResource);
+        server.createContext("/index.html", Server::handleStaticResource);
+        server.createContext("/main.js", Server::handleStaticResource);
+        server.setExecutor(null);
+        server.start();
+        System.out.println("服务器已启动: http://localhost:8000");
+    }
+    static void allowCORS(HttpExchange t) {
+        Headers h = t.getResponseHeaders();
+        h.add("Access-Control-Allow-Origin", "*");
+        h.add("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+        h.add("Access-Control-Allow-Headers", "Content-Type");
+    }
+    static String readReqBody(HttpExchange t) throws IOException {
+        InputStream is = t.getRequestBody();
+        ByteArrayOutputStream bos = new ByteArrayOutputStream();
+        byte[] buf = new byte[1024];
+        int len;
+        while ((len = is.read(buf)) != -1) bos.write(buf, 0, len);
+        return new String(bos.toByteArray(), StandardCharsets.UTF_8);
+    }
+    static Map<String, String> parseUrlEncoded(String body) {
+        Map<String, String> map = new HashMap<>();
+        if (body == null || body.isEmpty()) return map;
+        String[] pairs = body.split("&");
+        for (String pair : pairs) {
+            String[] parts = pair.split("=", 2);
+            if (parts.length == 2) {
+                try {
+                    String key = URLDecoder.decode(parts[0], "UTF-8");
+                    String value = URLDecoder.decode(parts[1], "UTF-8");
+                    map.put(key, value);
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+            }
+        }
+        return map;
+    }
+    static void resp(HttpExchange t, String resp) throws IOException {
+        allowCORS(t);
+        Headers h = t.getResponseHeaders();
+        h.add("Content-Type", "application/json; charset=utf-8");
+        byte[] bytes = resp.getBytes(StandardCharsets.UTF_8);
+        t.sendResponseHeaders(200, bytes.length);
+        OutputStream os = t.getResponseBody();
+        os.write(bytes);
+        os.close();
+    }
+    static void handleRegister(HttpExchange t) throws IOException {
+        if (t.getRequestMethod().equals("OPTIONS")) { allowCORS(t); t.sendResponseHeaders(200, -1); return; }
+        String body = readReqBody(t);
+        Map<String,String> map = parseUrlEncoded(body);
+        int code = userService.register(map.get("username"), map.get("password"), map.get("email"));
+        switch(code){
+            case 0: resp(t, "{\"status\":0}"); break;
+            case 1: resp(t, "{\"status\":1,\"msg\":\"用户名已存在\"}"); break;
+            case 2: resp(t, "{\"status\":1,\"msg\":\"邮箱格式不正确\"}"); break;
+            default: resp(t, "{\"status\":1,\"msg\":\"注册失败\"}"); break;
+        }
+    }
+    static void handleLogin(HttpExchange t) throws IOException {
+        if (t.getRequestMethod().equals("OPTIONS")) { allowCORS(t); t.sendResponseHeaders(200, -1); return; }
+        String body = readReqBody(t);
+        Map<String,String> map = parseUrlEncoded(body);
+        User u = userService.login(map.get("username"), map.get("password"));
+        if (u != null) {
+            String r = String.format("{\"status\":0,\"userId\":\"%s\",\"username\":\"%s\",\"email\":\"%s\",\"role\":\"%s\"}", u.getUserId(), u.getUsername(), u.getEmail(), u.getRole());
+            resp(t, r);
+        } else resp(t, "{\"status\":1,\"msg\":\"用户名或密码错误\"}");
+    }
+    static void handleActivityPublish(HttpExchange t) throws IOException {
+        if (t.getRequestMethod().equals("OPTIONS")) { allowCORS(t); t.sendResponseHeaders(200, -1); return; }
+        String body = readReqBody(t);
+        Map<String,String> map = parseUrlEncoded(body);
+        String eventTime = (map.getOrDefault("startTime", "") + " ~ " + map.getOrDefault("endTime", "")).trim();
+        boolean ok = activityService.publishActivity(
+            map.get("name"),
+            map.get("desc"),
+            map.get("publisherId"),
+            Integer.parseInt(map.getOrDefault("maxNum","30")),
+            eventTime,
+            map.getOrDefault("startTime",""),
+            map.getOrDefault("endTime", ""),
+            userService
+        );
+        resp(t, ok ? "{\"status\":0}" : "{\"status\":1,\"msg\":\"发布失败\"}");
+    }
+    static void handleActivityList(HttpExchange t) throws IOException {
+        allowCORS(t);
+        List<Activity> acts = activityService.queryActivities();
+        StringBuilder sb = new StringBuilder();
+        sb.append("[");
+        for (int i=0;i<acts.size();i++){
+            Activity a = acts.get(i);
+            int count = registrationService.getRegistrationCountForActivity(a.getActivityId());
+            // 获取发布者用户名而不是ID
+            User publisher = userService.getUserInfo(a.getPublisherId());
+            String publisherName = publisher != null ? publisher.getUsername() : "未知用户";
+            sb.append(String.format("{\"activityId\":\"%s\",\"activityName\":\"%s\",\"description\":\"%s\",\"publisherId\":\"%s\",\"publisherName\":\"%s\",\"maxNum\":%d,\"count\":%d,\"eventTime\":\"%s\",\"startTime\":\"%s\",\"endTime\":\"%s\",\"status\":\"%s\"}",
+                a.getActivityId(),a.getActivityName(),a.getDescription(),a.getPublisherId(),publisherName,a.getMaxNum(),count,a.getEventTime(),a.getStartTime(),a.getEndTime(),a.getStatus()));
+            if(i<acts.size()-1) sb.append(",\n");
+        }
+        sb.append("]");
+        resp(t, sb.toString());
+    }
+    static void handleActivityUpdate(HttpExchange t) throws IOException {
+        if (t.getRequestMethod().equals("OPTIONS")) { allowCORS(t); t.sendResponseHeaders(200, -1); return; }
+        String body = readReqBody(t);
+        Map<String,String> map = parseUrlEncoded(body);
+        String eventTime = (map.getOrDefault("startTime", "") + " ~ " + map.getOrDefault("endTime", "")).trim();
+        // 确保只有活动发布者可以更新活动
+        boolean ok = activityService.updateActivity(
+            map.get("activityId"),
+            map.get("name"),
+            map.get("desc"),
+            map.get("publisherId"),
+            Integer.parseInt(map.getOrDefault("maxNum","30")),
+            eventTime,
+            map.getOrDefault("startTime",""),
+            map.getOrDefault("endTime", "")
+        );
+        resp(t, ok ? "{\"status\":0}" : "{\"status\":1,\"msg\":\"更新失败或无权限\"}");
+    }
+    static void handleRegistrationApply(HttpExchange t) throws IOException {
+        if (t.getRequestMethod().equals("OPTIONS")) { allowCORS(t); t.sendResponseHeaders(200, -1); return; }
+        String body = readReqBody(t);
+        Map<String,String> map = parseUrlEncoded(body);
+        
+        System.out.println("收到活动报名请求: " + body);
+        
+        String userId = map.get("userId");
+        String activityId = map.get("activityId");
+        
+        if (userId == null || activityId == null) {
+            System.err.println("缺少必要参数: userId=" + userId + ", activityId=" + activityId);
+            resp(t, "{\"status\":1,\"msg\":\"缺少必要参数\"}");
+            return;
+        }
+        
+        Activity act = activityService.getActivity(activityId);
+        if (act == null) {
+            System.err.println("未找到活动: " + activityId);
+            resp(t, "{\"status\":1,\"msg\":\"未找到活动\"}");
+            return;
+        }
+        
+        // 只允许审核通过的活动被报名
+        if (!"approved".equals(act.getStatus())) {
+            System.err.println("活动未审核通过: " + activityId);
+            resp(t, "{\"status\":1,\"msg\":\"活动未审核通过\"}");
+            return;
+        }
+        
+        int maxNum = act.getMaxNum();
+        System.out.println("活动 " + activityId + " 的最大人数: " + maxNum);
+        
+        boolean ok = registrationService.registerActivity(userId, activityId, maxNum);
+        int current = registrationService.getRegistrationCountForActivity(activityId);
+        
+        System.out.println("报名结果: ok=" + ok + ", 当前人数: " + current + ", 最大人数: " + maxNum);
+        
+        if(current>maxNum) {
+            resp(t, "{\"status\":2,\"msg\":\"人数已满\"}");
+        } else {
+            resp(t, ok ? "{\"status\":0}" : "{\"status\":1,\"msg\":\"已报名或失败\"}");
+        }
+    }
+    static void handleRegistrationReview(HttpExchange t) throws IOException {
+        if (t.getRequestMethod().equals("OPTIONS")) { allowCORS(t); t.sendResponseHeaders(200, -1); return; }
+        String body = readReqBody(t);
+        Map<String,String> map = parseUrlEncoded(body);
+        boolean ok = registrationService.reviewRegistration(map.get("registrationId"), "1".equals(map.get("approve")));
+        resp(t, ok ? "{\"status\":0}" : "{\"status\":1}");
+    }
+    static void handleRegistrationList(HttpExchange t) throws IOException {
+        allowCORS(t);
+        String q = t.getRequestURI().getQuery();
+        String activityId = "";
+        if(q!=null && q.startsWith("activityId=")) activityId = q.substring(11);
+        List<Registration> regs = registrationService.getRegistrationsForActivity(activityId);
+        StringBuilder sb = new StringBuilder();
+        sb.append("[");
+        for(int i=0;i<regs.size();i++){
+            Registration r = regs.get(i);
+            // 获取用户名而不是用户ID
+            User user = userService.getUserInfo(r.getUserId());
+            String username = user != null ? user.getUsername() : r.getUserId();
+            sb.append(String.format("{\"registrationId\":\"%s\",\"userId\":\"%s\",\"username\":\"%s\",\"activityId\":\"%s\",\"status\":\"%s\"}",
+                r.getRegistrationId(), r.getUserId(), username, r.getActivityId(), r.getStatus()));
+            if(i<regs.size()-1) sb.append(",");
+        }
+        sb.append("]");
+        resp(t, sb.toString());
+    }
+    // 管理端：增加报名者
+    static void handleRegistrationAdd(HttpExchange t) throws IOException {
+        if (t.getRequestMethod().equals("OPTIONS")) { allowCORS(t); t.sendResponseHeaders(200, -1); return; }
+        String body = readReqBody(t);
+        Map<String,String> map = parseUrlEncoded(body);
+        Activity act = activityService.getActivity(map.get("activityId"));
+        int maxNum = (act==null?30:act.getMaxNum());
+        boolean ok = registrationService.registerActivity(map.get("userId"), map.get("activityId"), maxNum);
+        resp(t, ok ? "{\"status\":0}" : "{\"status\":1}");
+    }
+    // 管理端：删除报名者
+    static void handleRegistrationDelete(HttpExchange t) throws IOException {
+        if (t.getRequestMethod().equals("OPTIONS")) { allowCORS(t); t.sendResponseHeaders(200, -1); return; }
+        String body = readReqBody(t);
+        Map<String,String> map = parseUrlEncoded(body);
+        boolean ok = registrationService.deleteRegistration(map.get("registrationId"));
+        resp(t, ok ? "{\"status\":0}" : "{\"status\":1}");
+    }
+    // 用户信息查询
+    static void handleUserInfo(HttpExchange t) throws IOException {
+        if (t.getRequestMethod().equals("OPTIONS")) { allowCORS(t); t.sendResponseHeaders(200, -1); return; }
+        String body = readReqBody(t);
+        Map<String,String> map = parseUrlEncoded(body);
+        User u = userService.getUserInfo(map.get("userId"));
+        if (u != null) {
+            resp(t, String.format("{\"status\":0,\"userId\":\"%s\",\"username\":\"%s\",\"email\":\"%s\",\"role\":\"%s\"}", u.getUserId(), u.getUsername(), u.getEmail(), u.getRole()));
+        } else resp(t, "{\"status\":1,\"msg\":\"用户不存在\"}");
+    }
+    // 用户信息修改加avatar参数
+    static void handleUserUpdate(HttpExchange t) throws IOException {
+        if (t.getRequestMethod().equals("OPTIONS")) { allowCORS(t); t.sendResponseHeaders(200, -1); return; }
+        String body = readReqBody(t);
+        Map<String,String> map = parseUrlEncoded(body);
+        String avatar = map.get("avatar");
+        boolean ok = userService.updateUser(map.get("userId"), map.get("username"), map.get("email"), avatar);
+        resp(t, ok ? "{\"status\":0}" : "{\"status\":1,\"msg\":\"更新失败，用户名可能已存在\"}");
+    }
+    // 修改用户密码
+    static void handleUserChangePwd(HttpExchange t) throws IOException {
+        if (t.getRequestMethod().equals("OPTIONS")) { allowCORS(t); t.sendResponseHeaders(200, -1); return; }
+        String body = readReqBody(t);
+        Map<String,String> map = parseUrlEncoded(body);
+        boolean ok = userService.changePassword(map.get("userId"), map.get("oldPwd"), map.get("newPwd"));
+        resp(t, ok ? "{\"status\":0}" : "{\"status\":1,\"msg\":\"密码错误\"}");
+    }
+    // 查询我发布的活动
+    static void handleActivityMy(HttpExchange t) throws IOException {
+        if (t.getRequestMethod().equals("OPTIONS")) { allowCORS(t); t.sendResponseHeaders(200, -1); return; }
+        String body = readReqBody(t);
+        Map<String,String> map = parseUrlEncoded(body);
+        List<Activity> acts = activityService.queryActivitiesByPublisher(map.get("publisherId"));
+        StringBuilder sb = new StringBuilder();
+        sb.append("[");
+        for(int i=0;i<acts.size();i++){
+            Activity a = acts.get(i);
+            // 获取发布者用户名而不是ID
+            User publisher = userService.getUserInfo(a.getPublisherId());
+            String publisherName = publisher != null ? publisher.getUsername() : "未知用户";
+            sb.append(String.format("{\"activityId\":\"%s\",\"activityName\":\"%s\",\"description\":\"%s\",\"publisherId\":\"%s\",\"publisherName\":\"%s\",\"status\":\"%s\"}", 
+                a.getActivityId(),a.getActivityName(),a.getDescription(),a.getPublisherId(),publisherName,a.getStatus()));
+            if(i<acts.size()-1) sb.append(",\n");
+        }
+        sb.append("]");
+        resp(t, sb.toString());
+    }
+    // 删除活动
+    static void handleActivityDelete(HttpExchange t) throws IOException {
+        if (t.getRequestMethod().equals("OPTIONS")) { allowCORS(t); t.sendResponseHeaders(200, -1); return; }
+        String body = readReqBody(t);
+        Map<String,String> map = parseUrlEncoded(body);
+        
+        // 获取当前用户信息并检查权限
+        String requesterId = map.get("publisherId"); // 这里实际上是请求者的ID
+        User requester = userService.getUserInfo(requesterId);
+        if (requester == null) {
+            resp(t, "{\"status\":1,\"msg\":\"用户不存在\"}");
+            return;
+        }
+        
+        boolean ok = activityService.deleteActivity(map.get("activityId"), requesterId);
+        resp(t, ok ? "{\"status\":0}" : "{\"status\":1,\"msg\":\"删除失败，权限不足或活动不存在\"}");
+    }
+    // 查询我参与的活动报名
+    static void handleRegistrationMy(HttpExchange t) throws IOException {
+        if (t.getRequestMethod().equals("OPTIONS")) { allowCORS(t); t.sendResponseHeaders(200, -1); return; }
+        String body = readReqBody(t);
+        Map<String,String> map = parseUrlEncoded(body);
+        List<Registration> regs = registrationService.getRegistrationsByUser(map.get("userId"));
+        StringBuilder sb = new StringBuilder();
+        sb.append("[");
+        for(int i=0;i<regs.size();i++){
+            Registration r = regs.get(i);
+            // 获取用户名而不是用户ID
+            User user = userService.getUserInfo(r.getUserId());
+            String username = user != null ? user.getUsername() : r.getUserId();
+            sb.append(String.format("{\"registrationId\":\"%s\",\"userId\":\"%s\",\"username\":\"%s\",\"activityId\":\"%s\",\"status\":\"%s\"}",
+                r.getRegistrationId(), r.getUserId(), username, r.getActivityId(), r.getStatus()));
+            if(i<regs.size()-1) sb.append(",");
+        }
+        sb.append("]");
+        resp(t, sb.toString());
+    }
+    // 用户头像上传
+    static void handleAvatarUpload(HttpExchange t) throws IOException {
+        if (t.getRequestMethod().equals("OPTIONS")) { allowCORS(t); t.sendResponseHeaders(200, -1); return; }
+        String contentType = t.getRequestHeaders().getFirst("Content-Type");
+        if (contentType == null) {
+            contentType = t.getRequestHeaders().getFirst("Content-type");
+        }
+        if (contentType == null || !contentType.toLowerCase().contains("multipart/form-data")) {
+            resp(t, "{\"status\":1,\"msg\":\"Content-Type必须为multipart/form-data\"}");
+            return;
+        }
+        // (此处建议使用Multipart解析库处理文件数据，简化版处理略)
+        // 直接将文件内容保存为 userId.jpg/png，返回URL
+        // 这里只做接口声明，完整实现需补充文件处理逻辑
+        // ... 留空...
+        resp(t, "{\"status\":0,\"url\":\"/avatars/demo.jpg\"}"); // 示例返回
+    }
+    // 管理端审核活动
+    static void handleActivityReview(HttpExchange t) throws IOException {
+        if (t.getRequestMethod().equals("OPTIONS")) { allowCORS(t); t.sendResponseHeaders(200, -1); return; }
+        String body = readReqBody(t);
+        Map<String,String> map = parseUrlEncoded(body);
+        
+        // 获取当前用户信息并检查权限
+        String reviewerId = map.get("reviewerId");
+        User reviewer = userService.getUserInfo(reviewerId);
+        if (reviewer == null || !"admin".equals(reviewer.getRole())) {
+            resp(t, "{\"status\":1,\"msg\":\"权限不足\"}");
+            return;
+        }
+        
+        String activityId = map.get("activityId");
+        String status = map.get("status"); // "approved" 或 "rejected"
+        
+        boolean ok = activityService.reviewActivity(activityId, status);
+        resp(t, ok ? "{\"status\":0}" : "{\"status\":1,\"msg\":\"审核失败\"}");
+    }
+    // 查询待审核的活动
+    static void handlePendingActivities(HttpExchange t) throws IOException {
+        if (t.getRequestMethod().equals("OPTIONS")) { allowCORS(t); t.sendResponseHeaders(200, -1); return; }
+        
+        // 获取当前用户信息并检查权限
+        String q = t.getRequestURI().getQuery();
+        String reviewerId = "";
+        if(q!=null && q.startsWith("reviewerId=")) reviewerId = q.substring(11);
+        
+        User reviewer = userService.getUserInfo(reviewerId);
+        if (reviewer == null || !"admin".equals(reviewer.getRole())) {
+            resp(t, "{\"status\":1,\"msg\":\"权限不足\"}");
+            return;
+        }
+        
+        List<Activity> acts = activityService.queryPendingActivities();
+        StringBuilder sb = new StringBuilder();
+        sb.append("[");
+        for (int i=0;i<acts.size();i++){
+            Activity a = acts.get(i);
+            int count = registrationService.getRegistrationCountForActivity(a.getActivityId());
+            // 获取发布者用户名而不是ID
+            User publisher = userService.getUserInfo(a.getPublisherId());
+            String publisherName = publisher != null ? publisher.getUsername() : "未知用户";
+            sb.append(String.format("{\"activityId\":\"%s\",\"activityName\":\"%s\",\"description\":\"%s\",\"publisherId\":\"%s\",\"publisherName\":\"%s\",\"maxNum\":%d,\"count\":%d,\"eventTime\":\"%s\",\"startTime\":\"%s\",\"endTime\":\"%s\",\"status\":\"%s\"}",
+                a.getActivityId(),a.getActivityName(),a.getDescription(),a.getPublisherId(),publisherName,a.getMaxNum(),count,a.getEventTime(),a.getStartTime(),a.getEndTime(), a.getStatus()));
+            if(i<acts.size()-1) sb.append(",\n");
+        }
+        sb.append("]");
+        resp(t, sb.toString());
+    }
+    
+    // 查询所有活动（供管理员在活动管理页面使用）
+    static void handleAllActivities(HttpExchange t) throws IOException {
+        if (t.getRequestMethod().equals("OPTIONS")) { allowCORS(t); t.sendResponseHeaders(200, -1); return; }
+        
+        // 获取当前用户信息并检查权限
+        String q = t.getRequestURI().getQuery();
+        String reviewerId = "";
+        if(q!=null && q.startsWith("reviewerId=")) reviewerId = q.substring(11);
+        
+        User reviewer = userService.getUserInfo(reviewerId);
+        if (reviewer == null || !"admin".equals(reviewer.getRole())) {
+            resp(t, "{\"status\":1,\"msg\":\"权限不足\"}");
+            return;
+        }
+        
+        List<Activity> acts = activityService.queryActivitiesForAdmin();
+        StringBuilder sb = new StringBuilder();
+        sb.append("[");
+        for (int i=0;i<acts.size();i++){
+            Activity a = acts.get(i);
+            int count = registrationService.getRegistrationCountForActivity(a.getActivityId());
+            // 获取发布者用户名而不是ID
+            User publisher = userService.getUserInfo(a.getPublisherId());
+            String publisherName = publisher != null ? publisher.getUsername() : "未知用户";
+            sb.append(String.format("{\"activityId\":\"%s\",\"activityName\":\"%s\",\"description\":\"%s\",\"publisherId\":\"%s\",\"publisherName\":\"%s\",\"maxNum\":%d,\"count\":%d,\"eventTime\":\"%s\",\"startTime\":\"%s\",\"endTime\":\"%s\",\"status\":\"%s\"}",
+                a.getActivityId(),a.getActivityName(),a.getDescription(),a.getPublisherId(),publisherName,a.getMaxNum(),count,a.getEventTime(),a.getStartTime(),a.getEndTime(), a.getStatus()));
+            if(i<acts.size()-1) sb.append(",\n");
+        }
+        sb.append("]");
+        resp(t, sb.toString());
+    }
+    static void handleStaticResource(HttpExchange t) throws IOException {
+        allowCORS(t);
+        String uri = t.getRequestURI().getPath();
+        if (uri.equals("/")) uri = "/index.html";
+        java.io.File file = new java.io.File(System.getProperty("user.dir") + "/frontend" + uri);
+        if(uri.equals("/main.js")) t.getResponseHeaders().add("Content-Type","application/javascript");
+        else t.getResponseHeaders().add("Content-Type","text/html; charset=utf-8");
+        if (!file.exists()) {
+            String resp = "404 Not Found";
+            t.sendResponseHeaders(404, resp.length());
+            t.getResponseBody().write(resp.getBytes());
+            t.getResponseBody().close();
+            return;
+        }
+        byte[] data = java.nio.file.Files.readAllBytes(file.toPath());
+        t.sendResponseHeaders(200, data.length);
+        t.getResponseBody().write(data);
+        t.getResponseBody().close();
+    }
+}
