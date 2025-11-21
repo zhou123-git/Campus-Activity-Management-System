@@ -36,11 +36,12 @@ public class RegistrationService {
                 System.err.println("活动 " + activityId + " 已满员");
                 return false;
             }
-            // 使用用户ID作为报名ID
-            p.setString(1,userId);
-            p.setString(2,userId);
-            p.setString(3,activityId);
-            p.setString(4,"已申请");
+            // 使用UUID生成唯一的注册ID，避免主键冲突
+            String registrationId = UUID.randomUUID().toString();
+            p.setString(1, registrationId);
+            p.setString(2, userId);
+            p.setString(3, activityId);
+            p.setString(4, "已申请");
             p.executeUpdate();
             System.out.println("用户 " + userId + " 成功报名活动 " + activityId);
             return true;
