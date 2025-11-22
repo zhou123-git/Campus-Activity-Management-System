@@ -77,7 +77,7 @@ if(window.Vue){
     setup(){
       const activities = ref([]);
       const pendingActivities = ref([]); // 待审核活动列表
-      const state = reactive({ user: null, view: 'welcome' });
+      const state = reactive({ user: null, view: 'login' });
       const loginForm = reactive({ username: '', password: '' });
       const regForm = reactive({ username: '', password: '', email: '' });
       const profile = reactive({ username: '', email: '', avatar: '/resources/images/default-avatar.jpg' });

@@ -18,10 +18,10 @@
          <img :src="profile.avatar || '/resources/images/default-avatar.jpg'" class="avatar" alt="头像">
 
         .hero-banner{background:linear-gradient(120deg,#2A5298,#1e3c72);color:white;padding:2.2rem;border-radius:12px;margin-bottom:1.5rem;box-shadow:0 8px 30px rgba(33,47,61,.08)}
-        .hero-title{font-size:2rem;font-weight:800;letter-spacing:0.2px;margin-bottom:.5rem}
-        .hero-sub{opacity:.9;margin-bottom:1rem}
+        .hero-title{font-size:2.5rem;font-weight:800;letter-spacing:0.2px;margin-bottom:.5rem}
+        .hero-sub{opacity:.9;margin-bottom:1rem;font-size:1.2rem}
         .hero-ctas .btn{min-width:160px}
-        @media (max-width:768px){ .hero-title{font-size:1.4rem} .centered{padding:0 1rem} }
+        @media (max-width:768px){ .hero-title{font-size:1.8rem} .centered{padding:0 1rem} .hero-sub{font-size:1rem} }
         /* 登录返回按钮位置调整（仅作用于 auth-minimal 登录卡） */
         .auth-card.auth-minimal{position:relative;padding-top:72px}
         /* 左移 40px（从 -20 -> -60），上移 40px（从 6 -> -34） */
@@ -114,12 +114,16 @@
         .auth-card{border:0;border-radius:1rem;box-shadow:0 12px 30px rgba(0,0,0,.08)!important;background:#ffffff;}
         .auth-title{font-weight:700;letter-spacing:.5px;}
         .auth-subtitle{color:#6c757d}
-        .auth-input{height:48px;border-radius:.75rem;padding-left: 1rem;}
-        .auth-btn{height:48px;border-radius:.75rem;}
+        .auth-input{height:48px;border-radius:.75rem;padding-left: 1rem;transition:all 0.3s;border: 1px solid #e1e5e9;}
+        .auth-input:focus{border-color: #1890ff;box-shadow: 0 0 0 3px rgba(24,144,255,.15);}
+        .auth-btn{height:48px;border-radius:.75rem;transition: all 0.3s;}
+        .auth-btn:hover{transform: translateY(-2px);box-shadow: 0 4px 8px rgba(24,144,255,.3);}
         .link-muted{color:#6c757d;text-decoration:none}
         .link-muted:hover{color:#0d6efd;text-decoration:underline}
         /* 极简登录 */
-        .auth-minimal{max-width:360px;margin:12vh auto;background:transparent;box-shadow:none!important;border:0;}
+        .auth-minimal{max-width:360px;margin:2vh auto;background:transparent;box-shadow:none!important;border:0;}
+        /* 登录卡片美化 */
+        .login-container{display:flex;justify-content:center;align-items:center;min-height:60vh;}
         /* 活动详情样式 */
         .activity-detail {background: white; border-radius: 10px; padding: 20px; margin: 20px 0;}
         .activity-title {font-size: 1.5rem; font-weight: bold; color: #2A5298; margin-bottom: 15px;}
@@ -638,9 +642,18 @@
       </div>
     </div>
     
+    <!-- 首页 Hero 欢迎横幅 -->
+    <div class="hero-banner" v-if="state.view==='login' || state.view==='register'">
+      <div class="d-flex justify-content-center align-items-center flex-wrap text-center">
+        <div class="w-100">
+          <div class="hero-title">欢迎来到 校园活动报名系统</div>
+          <div class="hero-sub">发现并参与最新的校园活动 —— 简单、快捷、安全。</div>
+        </div>
+      </div>
+    </div>
+
     <!-- 登录 -->
     <div class="auth-card auth-minimal p-1" v-if="state.view==='login'">
-      <button class="ant-btn ant-btn-default back-button" @click="state.view='welcome'">&laquo; 返回</button>
       <div class="text-center mb-4">
         <div class="auth-title fs-4 text-indigo-600 font-bold">用户登录</div>
         <div class="auth-subtitle small text-gray-500">欢迎回来，请输入您的账户信息</div>
@@ -661,7 +674,6 @@
 
     <!-- 注册 -->
     <div class="auth-card centered p-4 mt-4" v-if="state.view==='register'">
-      <button class="ant-btn ant-btn-default back-button" @click="state.view='welcome'">&laquo; 返回</button>
       <div class="text-center mb-4">
         <div class="auth-title fs-4 text-green-600 font-bold">创建账户</div>
         <div class="auth-subtitle small text-gray-500">填写以下信息完成注册</div>
