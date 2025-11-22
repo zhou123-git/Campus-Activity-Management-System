@@ -111,6 +111,14 @@ if(window.Vue){
         total: 0,
         totalPages: 0
       });
+      
+      // 活动管理分页数据
+      const activityManagementPagination = reactive({
+        page: 1,
+        pageSize: 6,
+        total: 0,
+        totalPages: 0
+      });
 
       const load = async ()=>{
         // 检查是否需要分页
@@ -147,21 +155,50 @@ if(window.Vue){
         }
       };
       
+      // 加载分页活动管理列表
+      const loadActivitiesForManagement = async (page = 1, pageSize = 6) => {
+        if (!state.user || state.user.role !== 'admin') return;
+        try {
+          const res = await fetch(`/api/activity/all?page=${page}&pageSize=${pageSize}&adminId=${state.user.userId}`);
+          const data = await res.json();
+          
+          if (data.activities) {
+            pendingActivities.value = data.activities;
+            // 更新分页信息
+            activityManagementPagination.page = data.page;
+            activityManagementPagination.pageSize = data.pageSize;
+            activityManagementPagination.total = data.total;
+            activityManagementPagination.totalPages = data.totalPages;
+          } else {
+            // 兼容旧的不分页格式
+            pendingActivities.value = data;
+          }
+        } catch (error) {
+          console.error('加载活动管理列表失败:', error);
+          pendingActivities.value = [];
+        }
+      };
+      
       // 计算分页页码数组
-      const getPageNumbers = () => {
+      const getPageNumbers = (paginationType) => {
         const pageNumbers = [];
         // 根据当前视图选择使用哪个分页数据
         let page, totalPages;
-        if (state.view === 'activities') {
-          // 活动列表使用活动分页数据
-          page = activityPagination.page;
-          totalPages = activityPagination.totalPages;
-        } else if (state.view === 'userManagement') {
-          // 用户列表使用用户分页数据
-          page = pagination.page;
-          totalPages = pagination.totalPages;
-        } else {
-          return [];
+        switch(paginationType) {
+          case 'activity':
+            page = activityPagination.page;
+            totalPages = activityPagination.totalPages;
+            break;
+          case 'activityManagement':
+            page = activityManagementPagination.page;
+            totalPages = activityManagementPagination.totalPages;
+            break;
+          case 'user':
+            page = pagination.page;
+            totalPages = pagination.totalPages;
+            break;
+          default:
+            return [];
         }
         
         let start = Math.max(1, page - 2);
@@ -198,12 +235,17 @@ if(window.Vue){
       // 加载所有活动（供管理员在活动管理页面使用）
       const loadAllActivities = async () => {
         if (!state.user || state.user.role !== 'admin') return;
-        const res = await fetch(`/api/activity/all?reviewerId=${state.user.userId}`);
-        const result = await res.json();
-        if (Array.isArray(result)) {
-          pendingActivities.value = result;
+        // 如果在活动管理页面，使用分页加载
+        if (state.view === 'activityManagement') {
+          await loadActivitiesForManagement(1, 6);
         } else {
-          pendingActivities.value = [];
+          const res = await fetch(`/api/activity/all?reviewerId=${state.user.userId}`);
+          const result = await res.json();
+          if (Array.isArray(result)) {
+            pendingActivities.value = result;
+          } else {
+            pendingActivities.value = [];
+          }
         }
       };
       
@@ -490,7 +532,7 @@ if(window.Vue){
           await load();
           // 如果在活动管理页面，重新加载待审核活动
           if (state.view === 'activityManagement') {
-            await loadPendingActivities();
+            await loadAllActivities();
           }
           // 如果在活动详情页面且查看的是被审核的活动，更新详情
           if (selectedActivity.value && selectedActivity.value.activityId === activityId) {
@@ -792,6 +834,7 @@ if(window.Vue){
         editingUser, // 编辑中的用户
         pagination, // 分页数据
         activityPagination, // 活动列表分页数据
+        activityManagementPagination, // 活动管理分页数据
         selectedUser, // 选中的用户
         searchKeyword, // 搜索关键词
         newRole, // 新角色
@@ -826,6 +869,7 @@ if(window.Vue){
         setView,
         loadUserList, // 加载用户列表
         loadActivitiesWithPagination, // 加载分页活动列表
+        loadActivitiesForManagement, // 加载分页活动管理列表
         getPageNumbers, // 获取分页页码
         selectUser, // 选中用户
         searchUsers, // 搜索用户

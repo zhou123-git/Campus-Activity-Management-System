@@ -303,6 +303,44 @@ public class ActivityService {
         return list;
     }
     
+    // 获取活动总数（所有状态的活动）
+    public int getAllActivityCount() {
+        try(Connection conn = DB.getConn(); PreparedStatement p = conn.prepareStatement("SELECT COUNT(*) FROM activity")){
+            ResultSet rs = p.executeQuery();
+            if(rs.next()){
+                return rs.getInt(1);
+            }
+        }catch(Exception e){e.printStackTrace();}
+        return 0;
+    }
+    
+    // 查询所有活动（供管理员使用），支持分页
+    public List<Activity> queryActivitiesForAdmin(int page, int pageSize) {
+        List<Activity> list = new ArrayList<>();
+        int offset = (page - 1) * pageSize;
+        try(Connection conn = DB.getConn(); PreparedStatement p = conn.prepareStatement("SELECT * FROM activity ORDER BY published_at DESC, CAST(id AS UNSIGNED) DESC LIMIT ? OFFSET ?")){
+            p.setInt(1, pageSize);
+            p.setInt(2, offset);
+            ResultSet rs = p.executeQuery();
+            while(rs.next()){
+                Activity activity = new Activity(
+                    rs.getString("id"),
+                    rs.getString("name"),
+                    rs.getString("description"),
+                    rs.getString("publisher_id"),
+                    rs.getInt("max_num"),
+                    rs.getString("event_time"),
+                    rs.getString("start_time"),
+                    rs.getString("end_time"),
+                    rs.getLong("published_at"),
+                    rs.getString("status"));
+                activity.setLocation(rs.getString("location"));
+                list.add(activity);
+            }
+        }catch(Exception e){e.printStackTrace();}
+        return list;
+    }
+    
     // 查询所有活动（供管理员使用）
     public List<Activity> queryActivitiesForAdmin() {
         List<Activity> list = new ArrayList<>();

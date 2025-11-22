@@ -423,6 +423,29 @@
           </div>
         </div>
       </div>
+      
+      <!-- 活动管理分页控件 -->
+      <div class="pagination-container mt-4" v-if="activityManagementPagination.totalPages > 1">
+        <nav aria-label="活动管理分页">
+          <ul class="pagination justify-content-center">
+            <li class="page-item" :class="{ disabled: activityManagementPagination.page <= 1 }">
+              <a class="page-link" href="javascript:void(0)" @click="loadActivitiesForManagement(activityManagementPagination.page - 1, activityManagementPagination.pageSize)">上一页</a>
+            </li>
+            
+            <li class="page-item" v-for="n in getPageNumbers('activityManagement')" :key="n" :class="{ active: n === activityManagementPagination.page }">
+              <a class="page-link" href="javascript:void(0)" @click="loadActivitiesForManagement(n, activityManagementPagination.pageSize)">{{ n }}</a>
+            </li>
+            
+            <li class="page-item" :class="{ disabled: activityManagementPagination.page >= activityManagementPagination.totalPages }">
+              <a class="page-link" href="javascript:void(0)" @click="loadActivitiesForManagement(activityManagementPagination.page + 1, activityManagementPagination.pageSize)">下一页</a>
+            </li>
+          </ul>
+        </nav>
+        
+        <div class="text-center text-muted small">
+          共 {{ activityManagementPagination.total }} 条记录，第 {{ activityManagementPagination.page }} / {{ activityManagementPagination.totalPages }} 页
+        </div>
+      </div>
     </div>
 
     <!-- 活动详情页面 -->
