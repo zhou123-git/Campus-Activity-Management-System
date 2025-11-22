@@ -280,44 +280,69 @@
 
     <!-- 活动列表卡片形式 -->
     <div v-if="(state.view==='activities' || !state.view) && state.user">
-      <div v-if="activities.length===0" class="text-muted p-4 text-center bg-white rounded">暂无活动</div>
-      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        <div class="activity-card ant-card-hoverable rounded-xl overflow-hidden" v-for="a in activities" :key="a.activityId">
-          <div class="p-5 h-full flex flex-col bg-white">
-            <h5 class="text-indigo-600 font-bold text-lg mb-3">{{ a.activityName }}</h5>
-            <div class="flex-grow">
-              <p class="text-gray-500 text-sm mb-2">
-                <i class="far fa-calendar-alt mr-2"></i>
-                时间：{{ (a.startTime||'').replace('T',' ') }} ~ {{ (a.endTime||'').replace('T',' ') }}
-              </p>
-              <p class="text-gray-500 text-sm mb-2">
-                <i class="fas fa-map-marker-alt mr-2"></i>
-                地点：{{ a.location }}
-              </p>
-              <p class="text-gray-500 text-sm mb-2">
-                <i class="fas fa-users mr-2"></i>
-                人数：{{ a.count||0 }}/{{ a.maxNum||0 }}
-              </p>
-              <p class="text-gray-500 text-sm mb-2">
-                <i class="fas fa-user mr-2"></i>
-                发布者：{{ a.publisherName || a.publisherId }}
-              </p>
-
+      <div class="card">
+        <div class="card-header">
+          <h5 class="mb-0">活动列表</h5>
+        </div>
+        <div class="card-body">
+          <div class="overflow-x-auto">
+            <table class="table table-bordered text-center align-middle">
+              <thead>
+                <tr>
+                  <th>活动名称</th>
+                  <th>活动时间</th>
+                  <th>活动地点</th>
+                  <th>发布者</th>
+                  <th>人数</th>
+                  <th>操作</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="a in activities" :key="a.activityId">
+                  <td>{{ a.activityName }}</td>
+                  <td>{{ (a.startTime||'').replace('T',' ') }} ~ {{ (a.endTime||'').replace('T',' ') }}</td>
+                  <td>{{ a.location }}</td>
+                  <td>{{ a.publisherName || a.publisherId }}</td>
+                  <td>{{ a.count||0 }}/{{ a.maxNum||0 }}</td>
+                  <td>
+                    <button class="ant-btn ant-btn-primary ant-btn-sm me-1" @click="showActivityDetail(a)">查看详情</button>
+                    <button 
+                      class="ant-btn ant-btn-success ant-btn-sm" 
+                      @click="apply(a.activityId, a.maxNum, a.count)"
+                      :disabled="a.status !== 'approved'">
+                      报名
+                    </button>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+            
+            <!-- 无数据提示 -->
+            <div v-if="activities.length === 0" class="text-center text-muted py-4">
+              暂无活动
             </div>
-            <div class="flex justify-between mt-4 space-x-2">
-              <button 
-                class="flex-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-medium py-2 px-3 rounded-lg transition duration-200 ease-in-out transform hover:-translate-y-0.5"
-                @click="showActivityDetail(a)"
-              >
-                查看详情
-              </button>
-              <button 
-                class="flex-1 bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white font-medium py-2 px-3 rounded-lg transition duration-200 ease-in-out transform hover:-translate-y-0.5 disabled:opacity-50 disabled:cursor-not-allowed"
-                @click="apply(a.activityId, a.maxNum, a.count)"
-                :disabled="a.status !== 'approved'"
-              >
-                报名
-              </button>
+            
+            <!-- 活动列表分页控件 -->
+            <div class="pagination-container mt-4" v-if="activityPagination.totalPages > 1">
+              <nav aria-label="活动列表分页">
+                <ul class="pagination justify-content-center">
+                  <li class="page-item" :class="{ disabled: activityPagination.page <= 1 }">
+                    <a class="page-link" href="javascript:void(0)" @click="loadActivitiesWithPagination(activityPagination.page - 1, activityPagination.pageSize)">上一页</a>
+                  </li>
+                  
+                  <li class="page-item" v-for="n in getPageNumbers()" :key="n" :class="{ active: n === activityPagination.page }">
+                    <a class="page-link" href="javascript:void(0)" @click="loadActivitiesWithPagination(n, activityPagination.pageSize)">{{ n }}</a>
+                  </li>
+                  
+                  <li class="page-item" :class="{ disabled: activityPagination.page >= activityPagination.totalPages }">
+                    <a class="page-link" href="javascript:void(0)" @click="loadActivitiesWithPagination(activityPagination.page + 1, activityPagination.pageSize)">下一页</a>
+                  </li>
+                </ul>
+              </nav>
+              
+              <div class="text-center text-muted small">
+                共 {{ activityPagination.total }} 条记录，第 {{ activityPagination.page }} / {{ activityPagination.totalPages }} 页
+              </div>
             </div>
           </div>
         </div>
@@ -415,8 +440,7 @@
       </div>
 
       <div class="flex gap-2 mt-3">
-        <button class="ant-btn ant-btn-success" @click="apply(selectedActivity.activityId, selectedActivity.maxNum, selectedActivity.count)" :disabled="selectedActivity.count >= selectedActivity.maxNum || selectedActivity.status !== 'approved'">报名参加</button>
-        <button v-if="canManage(selectedActivity)" class="ant-btn ant-btn-warning" @click="manage(selectedActivity.activityId)">管理活动</button>
+        <button class="ant-btn ant-btn-success" @click="apply(selectedActivity.activityId, selectedActivity.maxNum, selectedActivity.count)" :disabled="selectedActivity.status !== 'approved'">报名参加</button>
         <div v-if="state.user && state.user.role === 'admin' && selectedActivity.status === 'pending'">
           <button class="ant-btn ant-btn-success mr-1" @click="reviewActivity(selectedActivity.activityId, 'approved')">通过</button>
           <button class="ant-btn ant-btn-danger" @click="reviewActivity(selectedActivity.activityId, 'rejected')">拒绝</button>

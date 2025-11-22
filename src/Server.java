@@ -159,7 +159,41 @@ public class Server {
     }
     static void handleActivityList(HttpExchange t) throws IOException {
         allowCORS(t);
-        List<Activity> acts = activityService.queryActivities();
+        
+        // 解析查询参数
+        String query = t.getRequestURI().getQuery();
+        Map<String, String> params = new HashMap<>();
+        if (query != null) {
+            String[] pairs = query.split("&");
+            for (String pair : pairs) {
+                String[] keyValue = pair.split("=");
+                if (keyValue.length == 2) {
+                    params.put(keyValue[0], java.net.URLDecoder.decode(keyValue[1], "UTF-8"));
+                }
+            }
+        }
+        
+        int page = 1;
+        int pageSize = 10;
+        
+        try {
+            if (params.containsKey("page")) {
+                page = Integer.parseInt(params.get("page"));
+            }
+            if (params.containsKey("pageSize")) {
+                pageSize = Integer.parseInt(params.get("pageSize"));
+            }
+        } catch (NumberFormatException e) {
+            // 使用默认值
+        }
+        
+        List<Activity> acts;
+        int totalActivities;
+        
+        // 分页查询
+        acts = activityService.queryActivities(page, pageSize);
+        totalActivities = activityService.getActivityCount();
+        
         StringBuilder sb = new StringBuilder();
         sb.append("[");
         for (int i=0;i<acts.size();i++){
@@ -173,7 +207,12 @@ public class Server {
             if(i<acts.size()-1) sb.append(",\n");
         }
         sb.append("]");
-        resp(t, sb.toString());
+        
+        // 返回分页信息
+        int totalPages = (int) Math.ceil((double) totalActivities / pageSize);
+        String response = String.format("{\"activities\":%s,\"page\":%d,\"pageSize\":%d,\"total\":%d,\"totalPages\":%d}", 
+            sb.toString(), page, pageSize, totalActivities, totalPages);
+        resp(t, response);
     }
     static void handleActivityUpdate(HttpExchange t) throws IOException {
         if (t.getRequestMethod().equals("OPTIONS")) { allowCORS(t); t.sendResponseHeaders(200, -1); return; }

@@ -103,10 +103,84 @@ if(window.Vue){
         total: 0,
         totalPages: 0
       });
+      
+      // 活动列表分页数据
+      const activityPagination = reactive({
+        page: 1,
+        pageSize: 10,
+        total: 0,
+        totalPages: 0
+      });
 
       const load = async ()=>{
-        const res = await fetch('/api/activity/list');
-        activities.value = await res.json();
+        // 检查是否需要分页
+        if (state.view === 'activities') {
+          // 活动报名页面使用分页
+          await loadActivitiesWithPagination(1, 10);
+        } else {
+          // 其他情况加载所有活动
+          const res = await fetch('/api/activity/list');
+          activities.value = await res.json();
+        }
+      };
+      
+      // 加载分页活动列表
+      const loadActivitiesWithPagination = async (page = 1, pageSize = 10) => {
+        try {
+          const res = await fetch(`/api/activity/list?page=${page}&pageSize=${pageSize}`);
+          const data = await res.json();
+          
+          if (data.activities) {
+            activities.value = data.activities;
+            // 更新分页信息
+            activityPagination.page = data.page;
+            activityPagination.pageSize = data.pageSize;
+            activityPagination.total = data.total;
+            activityPagination.totalPages = data.totalPages;
+          } else {
+            // 兼容旧的不分页格式
+            activities.value = data;
+          }
+        } catch (error) {
+          console.error('加载活动列表失败:', error);
+          activities.value = [];
+        }
+      };
+      
+      // 计算分页页码数组
+      const getPageNumbers = () => {
+        const pageNumbers = [];
+        // 根据当前视图选择使用哪个分页数据
+        let page, totalPages;
+        if (state.view === 'activities') {
+          // 活动列表使用活动分页数据
+          page = activityPagination.page;
+          totalPages = activityPagination.totalPages;
+        } else if (state.view === 'userManagement') {
+          // 用户列表使用用户分页数据
+          page = pagination.page;
+          totalPages = pagination.totalPages;
+        } else {
+          return [];
+        }
+        
+        let start = Math.max(1, page - 2);
+        let end = Math.min(totalPages, page + 2);
+        
+        // 确保显示5个页码（如果可能）
+        if (end - start < 4) {
+          if (start === 1) {
+            end = Math.min(totalPages, start + 4);
+          } else {
+            start = Math.max(1, end - 4);
+          }
+        }
+        
+        for (let i = start; i <= end; i++) {
+          pageNumbers.push(i);
+        }
+        
+        return pageNumbers;
       };
       
       // 加载待审核活动
@@ -231,6 +305,12 @@ if(window.Vue){
       const apply = async (aid, maxNum, count)=>{
         if(!state.user){ notify('请先登录','warning'); state.view='login'; return; }
         
+        // Check if activity is full
+        if (count >= maxNum) {
+          notify('活动报名人数已满，无法报名','warning');
+          return;
+        }
+        
         // Check if user has already registered for this activity
         await loadMyRegs();
         const alreadyRegistered = myRegs.value.some(reg => reg.activityId === aid);
@@ -245,14 +325,14 @@ if(window.Vue){
           const registrations = await regRes.json();
           
           // Check if activity is full based on submitted applications
-          if (registrations && registrations.length > maxNum) {
-            notify('活动报名人数已满','warning');
+          if (registrations && registrations.length >= maxNum) {
+            notify('活动报名人数已满，无法报名','warning');
             return;
           }
         } catch (e) {
           // If we can't load registrations, fall back to the count parameter
-          if (count > maxNum) {
-            notify('活动报名人数已满','warning');
+          if (count >= maxNum) {
+            notify('活动报名人数已满，无法报名','warning');
             return;
           }
         }
@@ -270,12 +350,12 @@ if(window.Vue){
             const approvedCount = registrations.filter(reg => reg.status === '已通过').length;
             
             // If approved registrations >= maxNum, then it's truly full
-            if (approvedCount > maxNum) {
-              notify('活动报名人数已满','warning');
+            if (approvedCount >= maxNum) {
+              notify('活动报名人数已满，无法报名','warning');
               return;
             } else {
               // If not truly full, show the message from server
-              notify( '报名失败','danger');
+              notify('报名失败','danger');
               return;
             }
           } catch (e) {
@@ -287,7 +367,6 @@ if(window.Vue){
         else notify('报名失败','danger');
       };
       const manage = (aid)=>{ openManage(aid); };
-      const canManage = (a)=>{ return !!(state.user && a && a.publisherId===state.user.userId); };
 
       // 活动详情功能
       const showActivityDetail = (activity) => {
@@ -542,29 +621,6 @@ if(window.Vue){
         }
       };
 
-      // 计算分页页码数组
-      const getPageNumbers = () => {
-        const pageNumbers = [];
-        const { page, totalPages } = pagination;
-        let start = Math.max(1, page - 2);
-        let end = Math.min(totalPages, page + 2);
-        
-        // 确保显示5个页码（如果可能）
-        if (end - start < 4) {
-          if (start === 1) {
-            end = Math.min(totalPages, start + 4);
-          } else {
-            start = Math.max(1, end - 4);
-          }
-        }
-        
-        for (let i = start; i <= end; i++) {
-          pageNumbers.push(i);
-        }
-        
-        return pageNumbers;
-      };
-
       // 确认删除用户
       const confirmDeleteUser = () => {
         if (!selectedUser.value) {
@@ -734,13 +790,13 @@ if(window.Vue){
         userList, // 用户列表
         editingUser, // 编辑中的用户
         pagination, // 分页数据
+        activityPagination, // 活动列表分页数据
         selectedUser, // 选中的用户
         searchKeyword, // 搜索关键词
         newRole, // 新角色
         load, 
         apply, 
         manage, 
-        canManage, 
         showActivityDetail, 
         backToPreviousView,
         viewActivityFromReg, 
@@ -768,6 +824,7 @@ if(window.Vue){
         loadPendingActivities,
         setView,
         loadUserList, // 加载用户列表
+        loadActivitiesWithPagination, // 加载分页活动列表
         getPageNumbers, // 获取分页页码
         selectUser, // 选中用户
         searchUsers, // 搜索用户

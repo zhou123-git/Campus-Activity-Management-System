@@ -47,7 +47,7 @@ public class ActivityService {
             }
         }catch(Exception e){e.printStackTrace(); return false;}
     }
-    // 查所有活动（按发布时间排序）- 只返回已通过审核的活动
+    // 查所有活动（按发布时间排序）- 只返回已通过审核的活动，支持分页
     public List<Activity> queryActivities() {
         List<Activity> list = new ArrayList<>();
         try(Connection conn = DB.getConn(); PreparedStatement p = conn.prepareStatement("SELECT * FROM activity WHERE status='approved' ORDER BY published_at ASC, CAST(id AS UNSIGNED) ASC")){
@@ -70,6 +70,65 @@ public class ActivityService {
         }catch(Exception e){e.printStackTrace();}
         return list;
     }
+    
+    // 查所有活动（按发布时间排序）- 只返回已通过审核的活动，支持分页
+    public List<Activity> queryActivities(int page, int pageSize) {
+        List<Activity> list = new ArrayList<>();
+        int offset = (page - 1) * pageSize;
+        try(Connection conn = DB.getConn(); PreparedStatement p = conn.prepareStatement("SELECT * FROM activity WHERE status='approved' ORDER BY published_at DESC, CAST(id AS UNSIGNED) DESC LIMIT ? OFFSET ?")){
+            p.setInt(1, pageSize);
+            p.setInt(2, offset);
+            ResultSet rs = p.executeQuery();
+            while(rs.next()){
+                Activity activity = new Activity(
+                    rs.getString("id"),
+                    rs.getString("name"),
+                    rs.getString("description"),
+                    rs.getString("publisher_id"),
+                    rs.getInt("max_num"),
+                    rs.getString("event_time"),
+                    rs.getString("start_time"),
+                    rs.getString("end_time"),
+                    rs.getLong("published_at"),
+                    rs.getString("status"));
+                activity.setLocation(rs.getString("location"));
+                list.add(activity);
+            }
+        }catch(Exception e){e.printStackTrace();}
+        return list;
+    }
+    
+    // 获取活动总数
+    public int getActivityCount() {
+        try(Connection conn = DB.getConn(); PreparedStatement p = conn.prepareStatement("SELECT COUNT(*) FROM activity WHERE status='approved'")){
+            ResultSet rs = p.executeQuery();
+            if(rs.next()){
+                return rs.getInt(1);
+            }
+        }catch(Exception e){e.printStackTrace();}
+        return 0;
+    }
+    
+    // 获取符合条件的活动总数（用于搜索等场景）
+    public int getActivityCount(String keyword) {
+        String sql = "SELECT COUNT(*) FROM activity WHERE status='approved'";
+        if (keyword != null && !keyword.isEmpty()) {
+            sql += " AND (name LIKE ? OR description LIKE ?)";
+        }
+        
+        try(Connection conn = DB.getConn(); PreparedStatement p = conn.prepareStatement(sql)){
+            if (keyword != null && !keyword.isEmpty()) {
+                p.setString(1, "%" + keyword + "%");
+                p.setString(2, "%" + keyword + "%");
+            }
+            ResultSet rs = p.executeQuery();
+            if(rs.next()){
+                return rs.getInt(1);
+            }
+        }catch(Exception e){e.printStackTrace();}
+        return 0;
+    }
+    
     // 更新活动（仅限发布者本人）
     public boolean updateActivity(String activityId, String name, String desc, String publisherId, int maxNum, String eventTime, String startTime, String endTime, String location) {
         try(Connection conn = DB.getConn(); PreparedStatement p = conn.prepareStatement("UPDATE activity SET name=?,description=?,max_num=?,event_time=?,start_time=?,end_time=?,location=? WHERE id=? AND publisher_id=?")){
