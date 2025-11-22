@@ -116,7 +116,7 @@ if(window.Vue){
         // 检查是否需要分页
         if (state.view === 'activities') {
           // 活动报名页面使用分页
-          await loadActivitiesWithPagination(1, 10);
+          await loadActivitiesWithPagination(1, 6);
         } else {
           // 其他情况加载所有活动
           const res = await fetch('/api/activity/list');
@@ -125,7 +125,7 @@ if(window.Vue){
       };
       
       // 加载分页活动列表
-      const loadActivitiesWithPagination = async (page = 1, pageSize = 10) => {
+      const loadActivitiesWithPagination = async (page = 1, pageSize = 6) => {
         try {
           const res = await fetch(`/api/activity/list?page=${page}&pageSize=${pageSize}`);
           const data = await res.json();
