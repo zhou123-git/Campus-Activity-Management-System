@@ -299,12 +299,31 @@ public class UserService {
         }
     }
     
-    // 管理员功能：获取所有用户列表
-    public List<User> getAllUsers() {
+    // 管理员功能：获取所有用户列表（支持分页和搜索）
+    public List<User> getAllUsers(int page, int pageSize, String searchKeyword) {
         List<User> users = new ArrayList<>();
-        try(Connection conn = DB.getConn(); PreparedStatement stmt = conn.prepareStatement("SELECT * FROM user ORDER BY id")) {
+        int offset = (page - 1) * pageSize;
+        try(Connection conn = DB.getConn()) {
+            String sql;
+            PreparedStatement stmt;
+            
+            if (searchKeyword != null && !searchKeyword.isEmpty()) {
+                // 模糊搜索查询
+                sql = "SELECT * FROM user WHERE username LIKE ? ORDER BY id LIMIT ? OFFSET ?";
+                stmt = conn.prepareStatement(sql);
+                stmt.setString(1, "%" + searchKeyword + "%");
+                stmt.setInt(2, pageSize);
+                stmt.setInt(3, offset);
+            } else {
+                // 普通分页查询
+                sql = "SELECT * FROM user ORDER BY id LIMIT ? OFFSET ?";
+                stmt = conn.prepareStatement(sql);
+                stmt.setInt(1, pageSize);
+                stmt.setInt(2, offset);
+            }
+            
             ResultSet rs = stmt.executeQuery();
-            System.out.println("开始查询所有用户...");
+            System.out.println("开始查询用户列表，页码: " + page + ", 每页数量: " + pageSize + ", 搜索关键词: " + searchKeyword);
             while(rs.next()) {
                 User user = new User(
                     rs.getString("id"),
@@ -318,9 +337,37 @@ public class UserService {
             }
             System.out.println("总共查询到 " + users.size() + " 个用户");
         } catch(Exception e) {
-            System.err.println("查询所有用户时出错: " + e.getMessage());
+            System.err.println("查询用户列表时出错: " + e.getMessage());
             e.printStackTrace();
         }
         return users;
+    }
+    
+    // 管理员功能：获取用户总数（支持搜索）
+    public int getUserCount(String searchKeyword) {
+        try(Connection conn = DB.getConn()) {
+            String sql;
+            PreparedStatement stmt;
+            
+            if (searchKeyword != null && !searchKeyword.isEmpty()) {
+                // 模糊搜索计数
+                sql = "SELECT COUNT(*) AS total FROM user WHERE username LIKE ?";
+                stmt = conn.prepareStatement(sql);
+                stmt.setString(1, "%" + searchKeyword + "%");
+            } else {
+                // 普通计数
+                sql = "SELECT COUNT(*) AS total FROM user";
+                stmt = conn.prepareStatement(sql);
+            }
+            
+            ResultSet rs = stmt.executeQuery();
+            if (rs.next()) {
+                return rs.getInt("total");
+            }
+        } catch(Exception e) {
+            System.err.println("查询用户总数时出错: " + e.getMessage());
+            e.printStackTrace();
+        }
+        return 0;
     }
 }

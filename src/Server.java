@@ -580,9 +580,38 @@ public class Server {
         // 获取查询参数
         String q = t.getRequestURI().getQuery();
         String adminId = "";
-        if(q!=null && q.startsWith("adminId=")) adminId = q.substring(8);
+        int page = 1;
+        int pageSize = 10;
+        String searchKeyword = "";
         
-        System.out.println("请求用户列表，adminId: " + adminId);
+        if (q != null) {
+            String[] params = q.split("&");
+            for (String param : params) {
+                if (param.startsWith("adminId=")) {
+                    adminId = param.substring(8);
+                } else if (param.startsWith("page=")) {
+                    try {
+                        page = Integer.parseInt(param.substring(5));
+                    } catch (NumberFormatException e) {
+                        page = 1;
+                    }
+                } else if (param.startsWith("pageSize=")) {
+                    try {
+                        pageSize = Integer.parseInt(param.substring(9));
+                    } catch (NumberFormatException e) {
+                        pageSize = 10;
+                    }
+                } else if (param.startsWith("search=")) {
+                    try {
+                        searchKeyword = URLDecoder.decode(param.substring(7), "UTF-8");
+                    } catch (Exception e) {
+                        searchKeyword = "";
+                    }
+                }
+            }
+        }
+        
+        System.out.println("请求用户列表，adminId: " + adminId + ", page: " + page + ", pageSize: " + pageSize + ", search: " + searchKeyword);
         
         // 获取当前用户信息并检查权限
         User admin = userService.getUserInfo(adminId);
@@ -594,9 +623,12 @@ public class Server {
             return;
         }
         
-        // 获取所有用户
-        List<User> users = userService.getAllUsers();
-        System.out.println("获取到的用户数量: " + users.size());
+        // 获取用户列表（分页+搜索）
+        List<User> users = userService.getAllUsers(page, pageSize, searchKeyword);
+        int total = userService.getUserCount(searchKeyword);
+        int totalPages = (int) Math.ceil((double) total / pageSize);
+        
+        System.out.println("获取到的用户数量: " + users.size() + ", 总数: " + total + ", 总页数: " + totalPages);
         
         StringBuilder sb = new StringBuilder();
         sb.append("[");
@@ -607,7 +639,13 @@ public class Server {
             if(i<users.size()-1) sb.append(",");
         }
         sb.append("]");
-        System.out.println("返回的用户数据: " + sb.toString());
-        resp(t, sb.toString());
+        
+        String jsonData = sb.toString();
+        String escapedData = jsonData.replace("\\", "\\\\").replace("\"", "\\\"");
+        String result = String.format("{\"status\":0,\"data\":\"%s\",\"total\":%d,\"page\":%d,\"pageSize\":%d,\"totalPages\":%d}", 
+            escapedData, total, page, pageSize, totalPages);
+        
+        System.out.println("返回的用户数据: " + result);
+        resp(t, result);
     }
 }

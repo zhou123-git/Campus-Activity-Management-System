@@ -92,6 +92,17 @@ if(window.Vue){
       const newUser = reactive({ username: '', password: '', email: '', role: 'user', errorMsg: '' }); // 新增用户表单
       const userList = ref([]); // 用户列表
       const editingUser = reactive({ userId: '', username: '', email: '', role: 'user' }); // 编辑中的用户
+      const selectedUser = ref(null); // 选中的用户
+      const searchKeyword = ref(''); // 搜索关键词
+      const newRole = ref('user'); // 新角色
+
+      // 分页相关数据
+      const pagination = reactive({
+        page: 1,
+        pageSize: 10,
+        total: 0,
+        totalPages: 0
+      });
 
       const load = async ()=>{
         const res = await fetch('/api/activity/list');
@@ -122,18 +133,39 @@ if(window.Vue){
         }
       };
       
-      // 加载用户列表
-      const loadUserList = async () => {
+      // 加载用户列表（支持分页和搜索）
+      const loadUserList = async (page = 1, pageSize = 10) => {
         if (!state.user || state.user.role !== 'admin') return;
         try {
-          console.log('正在加载用户列表...');
-          const res = await fetch(`/api/admin/user/list?adminId=${state.user.userId}`);
+          console.log('正在加载用户列表，页码:', page, '每页数量:', pageSize, '搜索关键词:', searchKeyword.value);
+          
+          // 构建查询参数
+          let queryParams = `adminId=${state.user.userId}&page=${page}&pageSize=${pageSize}`;
+          if (searchKeyword.value) {
+            queryParams += `&search=${encodeURIComponent(searchKeyword.value)}`;
+          }
+          
+          const res = await fetch(`/api/admin/user/list?${queryParams}`);
           console.log('用户列表响应状态:', res.status);
           if (res.ok) {
             const result = await res.json();
             console.log('用户列表数据:', result);
-            if (Array.isArray(result)) {
-              userList.value = result;
+            if (result.status === 0) {
+              // 解析返回的数据
+              const userData = JSON.parse(result.data.replace(/\\\\/g, '\\').replace(/\\"/g, '"'));
+              if (Array.isArray(userData)) {
+                userList.value = userData;
+              } else {
+                userList.value = [];
+              }
+              // 更新分页信息
+              pagination.total = result.total;
+              pagination.page = result.page;
+              pagination.pageSize = result.pageSize;
+              pagination.totalPages = result.totalPages;
+              
+              // 清除选中用户
+              selectedUser.value = null;
             } else {
               userList.value = [];
             }
@@ -447,6 +479,117 @@ if(window.Vue){
           default: return 'bg-secondary';
         }
       };
+      
+      // 确认更新用户角色
+      const confirmUpdateRole = () => {
+        if (!selectedUser.value) {
+          notify('请先选择要修改的用户', 'warning');
+          return;
+        }
+        
+        // 检查角色是否发生变化
+        if (newRole.value === selectedUser.value.role) {
+          notify('用户角色未发生变化', 'warning');
+          return;
+        }
+        
+        // 获取角色显示名称
+        const currentRoleName = selectedUser.value.role === 'admin' ? '管理员' : '普通用户';
+        const newRoleName = newRole.value === 'admin' ? '管理员' : '普通用户';
+        
+        if (confirm(`确定要将用户 "${selectedUser.value.username}" 的角色从 "${currentRoleName}" 修改为 "${newRoleName}" 吗？`)) {
+          updateUserInfo();
+        }
+      };
+
+      // 更新用户信息（包括角色）
+      const updateUserInfo = async () => {
+        if (!state.user || state.user.role !== 'admin') {
+          notify('权限不足', 'danger');
+          return;
+        }
+        
+        if (!selectedUser.value) {
+          notify('未选择用户', 'warning');
+          return;
+        }
+        
+        const p = new URLSearchParams({
+          adminId: state.user.userId,
+          userId: selectedUser.value.userId,
+          username: selectedUser.value.username,
+          email: selectedUser.value.email,
+          role: newRole.value
+        });
+        
+        const r = await fetch('/api/admin/user/update', {method: 'POST', body: p});
+        const d = await r.json();
+        
+        if (d.status === 0) {
+          notify('用户信息更新成功');
+          // 重新加载用户列表
+          await loadUserList(pagination.page, pagination.pageSize);
+          // 重置新角色为默认值
+          newRole.value = 'user';
+        } else {
+          notify(d.msg || '更新失败', 'danger');
+        }
+      };
+
+      // 计算分页页码数组
+      const getPageNumbers = () => {
+        const pageNumbers = [];
+        const { page, totalPages } = pagination;
+        let start = Math.max(1, page - 2);
+        let end = Math.min(totalPages, page + 2);
+        
+        // 确保显示5个页码（如果可能）
+        if (end - start < 4) {
+          if (start === 1) {
+            end = Math.min(totalPages, start + 4);
+          } else {
+            start = Math.max(1, end - 4);
+          }
+        }
+        
+        for (let i = start; i <= end; i++) {
+          pageNumbers.push(i);
+        }
+        
+        return pageNumbers;
+      };
+
+      // 确认删除用户
+      const confirmDeleteUser = () => {
+        if (!selectedUser.value) {
+          notify('请先选择要删除的用户', 'warning');
+          return;
+        }
+        
+        if (confirm(`确定要删除用户 "${selectedUser.value.username}" 吗？此操作不可恢复！`)) {
+          deleteUser(selectedUser.value.userId);
+        }
+      };
+
+      // 搜索用户
+      const searchUsers = async () => {
+        // 重置到第一页并执行搜索
+        await loadUserList(1, 10);
+      };
+
+      // 重置搜索
+      const resetSearch = async () => {
+        searchKeyword.value = '';
+        // 重置到第一页并重新加载所有用户
+        await loadUserList(1, 10);
+      };
+
+      // 选中用户
+      const selectUser = (user) => {
+        selectedUser.value = user;
+        // 同步新角色选择框的值
+        newRole.value = user.role;
+      };
 
       // 在设置视图时加载相应数据
       const setView = async (viewName) => {
@@ -454,7 +597,10 @@ if(window.Vue){
         if (viewName === 'activityManagement') {
           await loadAllActivities();
         } else if (viewName === 'userManagement') {
-          await loadUserList();
+          // 加载第一页用户列表
+          await loadUserList(1, 10);
+          // 重置新角色为默认值
+          newRole.value = 'user';
         }
       };
 
@@ -581,6 +727,10 @@ if(window.Vue){
         newUser, // 新增用户表单
         userList, // 用户列表
         editingUser, // 编辑中的用户
+        pagination, // 分页数据
+        selectedUser, // 选中的用户
+        searchKeyword, // 搜索关键词
+        newRole, // 新角色
         load, 
         apply, 
         manage, 
@@ -612,6 +762,13 @@ if(window.Vue){
         loadPendingActivities,
         setView,
         loadUserList, // 加载用户列表
+        getPageNumbers, // 获取分页页码
+        selectUser, // 选中用户
+        searchUsers, // 搜索用户
+        resetSearch, // 重置搜索
+        confirmDeleteUser, // 确认删除用户
+        confirmUpdateRole, // 确认更新用户角色
+        updateUserInfo, // 更新用户信息
         createUser, // 创建用户
         deleteUser, // 删除用户
         editUser, // 编辑用户
