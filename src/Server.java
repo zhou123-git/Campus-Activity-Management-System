@@ -71,6 +71,7 @@ public class Server {
         server.createContext("/", Server::handleStaticResource);
         server.createContext("/index.html", Server::handleStaticResource);
         server.createContext("/main.js", Server::handleStaticResource);
+        server.createContext("/resources", Server::handleStaticResource);
         server.setExecutor(null);
         server.start();
         System.out.println("服务器已启动: http://localhost:8000");
@@ -135,7 +136,8 @@ public class Server {
         Map<String,String> map = parseUrlEncoded(body);
         User u = userService.login(map.get("username"), map.get("password"));
         if (u != null) {
-            String r = String.format("{\"status\":0,\"userId\":\"%s\",\"username\":\"%s\",\"email\":\"%s\",\"role\":\"%s\"}", u.getUserId(), u.getUsername(), u.getEmail(), u.getRole());
+            String r = String.format("{\"status\":0,\"userId\":\"%s\",\"username\":\"%s\",\"email\":\"%s\",\"role\":\"%s\",\"avatar\":\"%s\"}",
+                u.getUserId(), u.getUsername(), u.getEmail(), u.getRole(), u.getAvatar());
             resp(t, r);
         } else resp(t, "{\"status\":1,\"msg\":\"用户名或密码错误\"}");
     }
@@ -329,7 +331,7 @@ public class Server {
         Map<String,String> map = parseUrlEncoded(body);
         User u = userService.getUserInfo(map.get("userId"));
         if (u != null) {
-            resp(t, String.format("{\"status\":0,\"userId\":\"%s\",\"username\":\"%s\",\"email\":\"%s\",\"role\":\"%s\"}", u.getUserId(), u.getUsername(), u.getEmail(), u.getRole()));
+            resp(t, String.format("{\"status\":0,\"userId\":\"%s\",\"username\":\"%s\",\"email\":\"%s\",\"role\":\"%s\",\"avatar\":\"%s\"}", u.getUserId(), u.getUsername(), u.getEmail(), u.getRole(), u.getAvatar()));
         } else resp(t, "{\"status\":1,\"msg\":\"用户不存在\"}");
     }
     // 用户信息修改加avatar参数
@@ -511,11 +513,47 @@ public class Server {
         sb.append("]");
         resp(t, sb.toString());
     }
+//    static void handleStaticResource(HttpExchange t) throws IOException {
+//        allowCORS(t);
+//        String uri = t.getRequestURI().getPath();
+//        if (uri.equals("/")) uri = "/index.html";
+//        java.io.File file = new java.io.File(System.getProperty("user.dir") + "/frontend" + uri);
+//        if(uri.equals("/main.js")) t.getResponseHeaders().add("Content-Type","application/javascript");
+//        else t.getResponseHeaders().add("Content-Type","text/html; charset=utf-8");
+//        if (!file.exists()) {
+//            String resp = "404 Not Found";
+//            t.sendResponseHeaders(404, resp.length());
+//            t.getResponseBody().write(resp.getBytes());
+//            t.getResponseBody().close();
+//            return;
+//        }
+//        byte[] data = java.nio.file.Files.readAllBytes(file.toPath());
+//        t.sendResponseHeaders(200, data.length);
+//        t.getResponseBody().write(data);
+//        t.getResponseBody().close();
+//    }
+
     static void handleStaticResource(HttpExchange t) throws IOException {
-        allowCORS(t);
-        String uri = t.getRequestURI().getPath();
+    allowCORS(t);
+    String uri = t.getRequestURI().getPath();
+    String baseDir = System.getProperty("user.dir");
+
+    // 处理资源文件
+    if (uri.startsWith("/resources/")) {
+        java.io.File file = new java.io.File(baseDir + uri);
+        if (file.exists() && file.isFile()) {
+            String contentType = getContentType(file.getName());
+            t.getResponseHeaders().add("Content-Type", contentType);
+            byte[] data = java.nio.file.Files.readAllBytes(file.toPath());
+            t.sendResponseHeaders(200, data.length);
+            t.getResponseBody().write(data);
+            t.getResponseBody().close();
+            return;
+        }
+    } else {
+        // 原有的处理逻辑
         if (uri.equals("/")) uri = "/index.html";
-        java.io.File file = new java.io.File(System.getProperty("user.dir") + "/frontend" + uri);
+        java.io.File file = new java.io.File(baseDir + "/frontend" + uri);
         if(uri.equals("/main.js")) t.getResponseHeaders().add("Content-Type","application/javascript");
         else t.getResponseHeaders().add("Content-Type","text/html; charset=utf-8");
         if (!file.exists()) {
@@ -530,7 +568,22 @@ public class Server {
         t.getResponseBody().write(data);
         t.getResponseBody().close();
     }
-    
+}
+
+// 添加获取内容类型的方法
+private static String getContentType(String fileName) {
+    if (fileName.endsWith(".png")) {
+        return "image/png";
+    } else if (fileName.endsWith(".jpg") || fileName.endsWith(".jpeg")) {
+        return "image/jpeg";
+    } else if (fileName.endsWith(".gif")) {
+        return "image/gif";
+    } else {
+        return "application/octet-stream";
+    }
+}
+
+
     // 管理员功能：创建用户
     static void handleAdminCreateUser(HttpExchange t) throws IOException {
         if (t.getRequestMethod().equals("OPTIONS")) { allowCORS(t); t.sendResponseHeaders(200, -1); return; }
@@ -684,8 +737,8 @@ public class Server {
         sb.append("[");
         for(int i=0;i<users.size();i++){
             User u = users.get(i);
-            sb.append(String.format("{\"userId\":\"%s\",\"username\":\"%s\",\"email\":\"%s\",\"role\":\"%s\"}",
-                u.getUserId(), u.getUsername(), u.getEmail(), u.getRole()));
+            sb.append(String.format("{\"userId\":\"%s\",\"username\":\"%s\",\"email\":\"%s\",\"role\":\"%s\",\"avatar\":\"%s\"}",
+                u.getUserId(), u.getUsername(), u.getEmail(), u.getRole(), u.getAvatar()));
             if(i<users.size()-1) sb.append(",");
         }
         sb.append("]");
@@ -699,3 +752,4 @@ public class Server {
         resp(t, result);
     }
 }
+

@@ -10,6 +10,8 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class UserService {
+    // Store avatar as a path that Server can serve (resources/images/...)
+    private static final String DEFAULT_AVATAR = "/resources/images/default-avatar.jpg";
     /**
      * 生成随机八位数字ID
      */
@@ -75,7 +77,7 @@ public class UserService {
                 insert.setString(2, username);
                 insert.setString(3, password);
                 insert.setString(4, e);
-                insert.setString(5, null);
+                insert.setString(5, DEFAULT_AVATAR); // 设置默认头像（Server会直接提供该路径下的文件）
                 insert.setString(6, "user"); // 默认角色为普通用户
                 insert.executeUpdate();
                 return 0;
@@ -84,6 +86,13 @@ public class UserService {
             e1.printStackTrace(); 
             return 3;
         }
+    }
+
+    private User normalizeAvatar(User user) {
+        if (user == null) return null;
+        String av = user.getAvatar();
+        if (av == null || av.trim().isEmpty()) user.setAvatar(DEFAULT_AVATAR);
+        return user;
     }
 
     public User login(String username, String password) {
@@ -100,7 +109,7 @@ public class UserService {
                     rs.getString("email"),
                     rs.getString("avatar"));
                 user.setRole(rs.getString("role")); // 设置用户角色
-                return user;
+                return normalizeAvatar(user);
             }
         }catch(Exception e){e.printStackTrace();}
         return null;
@@ -118,7 +127,7 @@ public class UserService {
                     rs.getString("email"),
                     rs.getString("avatar"));
                 user.setRole(rs.getString("role")); // 设置用户角色
-                return user;
+                return normalizeAvatar(user);
             }
         }catch(Exception e){e.printStackTrace();}
         return null;
@@ -146,7 +155,7 @@ public class UserService {
             try (PreparedStatement p = conn.prepareStatement("UPDATE user SET username=?,email=?,avatar=? WHERE id=?")) {
                 p.setString(1, username);
                 p.setString(2, email);
-                p.setString(3, avatar);
+                p.setString(3, (avatar == null || avatar.trim().isEmpty()) ? DEFAULT_AVATAR : avatar);
                 p.setString(4, userId);
                 return p.executeUpdate() > 0;
             }
@@ -221,7 +230,7 @@ public class UserService {
                 insert.setString(2, username);
                 insert.setString(3, password);
                 insert.setString(4, e);
-                insert.setString(5, null);
+                insert.setString(5, DEFAULT_AVATAR); // 设置默认头像
                 insert.setString(6, role); // 管理员可以指定角色
                 insert.executeUpdate();
                 return 0;
@@ -333,7 +342,7 @@ public class UserService {
                     rs.getString("avatar"));
                 user.setRole(rs.getString("role"));
                 System.out.println("查询到用户: ID=" + user.getUserId() + ", 用户名=" + user.getUsername() + ", 角色=" + user.getRole());
-                users.add(user);
+                users.add(normalizeAvatar(user));
             }
             System.out.println("总共查询到 " + users.size() + " 个用户");
         } catch(Exception e) {

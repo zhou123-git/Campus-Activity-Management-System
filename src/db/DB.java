@@ -21,18 +21,23 @@ public class DB {
     private static final String USER = "root";
     private static final String PWD = "123456";
     static {
-        // Try to load JDBC driver class. If not available on classpath, try to load the jar from ./lib
+        // Try to load JDBC driver class. If not available on classpath, try to load the jar from ./lib or other locations
         try {
             Class.forName("com.mysql.cj.jdbc.Driver");
         } catch (Exception e) {
             e.printStackTrace();
-            // try to load the driver jar from project lib directory
+            // try to load the driver jar from common locations
             try {
-                loadJdbcDriverFromLib("lib/mysql-connector-j-9.1.0.jar");
-                Class.forName("com.mysql.cj.jdbc.Driver");
+                String jar = findJdbcJar();
+                if (jar != null) {
+                    loadJdbcDriverFromLib(jar);
+                    Class.forName("com.mysql.cj.jdbc.Driver");
+                } else {
+                    throw new IllegalStateException("MySQL connector jar not found in common locations.");
+                }
             } catch (Exception ex) {
                 // final fallback — print helpful message (driver not found)
-                System.err.println("Failed to load MySQL JDBC driver automatically. Make sure 'mysql-connector-j-*.jar' is on the classpath.");
+                System.err.println("Failed to load MySQL JDBC driver automatically. Make sure 'mysql-connector-j-*.jar' is on the classpath or in the project's lib folder.");
                 ex.printStackTrace();
             }
         }
@@ -40,7 +45,24 @@ public class DB {
     }
 
     public static Connection getConn() throws SQLException {
-        return DriverManager.getConnection(URL, USER, PWD);
+        try {
+            return DriverManager.getConnection(URL, USER, PWD);
+        } catch (SQLException e) {
+            // If no suitable driver, try to (re)load the driver jar and retry once.
+            if (e.getMessage() != null && e.getMessage().toLowerCase().contains("no suitable driver")) {
+                try {
+                    String jar = findJdbcJar();
+                    if (jar != null) {
+                        loadJdbcDriverFromLib(jar);
+                    }
+                } catch (Exception ex) {
+                    System.err.println("Retry to load JDBC driver failed: " + ex.getMessage());
+                }
+                // retry connection once
+                return DriverManager.getConnection(URL, USER, PWD);
+            }
+            throw e;
+        }
     }
 
     public static void initTable() {
@@ -61,17 +83,28 @@ public class DB {
             // 如果表为空，尝试从资源 SQL 文件导入初始数据
             boolean needLoad = isTableEmpty(conn, "user") && isTableEmpty(conn, "activity") && isTableEmpty(conn, "registration");
             if (needLoad) {
-                // Prefer classpath resource first (when packaged), else fallback to resources/db/school_event.sql on disk
+                // Prefer classpath resource first (when packaged), else fallback to several common file locations
                 InputStream sqlStream = DB.class.getResourceAsStream("/db/school_event.sql");
                 if (sqlStream == null) {
-                    // try relative file path (useful when running from project root)
-                    File f = new File("resources/db/school_event.sql");
-                    if (f.exists()) try { sqlStream = new java.io.FileInputStream(f); } catch (Exception ex) { sqlStream = null; }
+                    // try several common filesystem locations (useful when running from IDE/project root)
+                    String[] candidates = new String[] {
+                        "resources/db/school_event.sql",
+                        "src/resources/db/school_event.sql",
+                        "src/main/resources/db/school_event.sql",
+                        "resources/school_event.sql",
+                        "db/school_event.sql"
+                    };
+                    for (String p : candidates) {
+                        File f = new File(p);
+                        if (f.exists()) {
+                            try { sqlStream = new java.io.FileInputStream(f); break; } catch (Exception ex) { sqlStream = null; }
+                        }
+                    }
                 }
                 if (sqlStream != null) {
                     try { runSqlScript(conn, sqlStream); System.out.println("Loaded initial data from school_event.sql"); } catch (Exception ex) { ex.printStackTrace(); }
                 } else {
-                    System.out.println("No school_event.sql found on classpath or in resources/db/. Skipping initial data import.");
+                    System.out.println("No school_event.sql found on classpath or in common resource locations. Skipping initial data import.");
                 }
             }
 
@@ -116,6 +149,30 @@ public class DB {
                 }
             }
         }
+    }
+
+    private static String findJdbcJar() {
+        // search common locations for a mysql connector jar
+        String[] locations = new String[] {"lib", "./lib", "../lib", "libs", "./libs"};
+        for (String loc : locations) {
+            File dir = new File(loc);
+            if (dir.exists() && dir.isDirectory()) {
+                File[] matches = dir.listFiles((d, name) -> name.toLowerCase().contains("mysql-connector-j") && name.toLowerCase().endsWith(".jar"));
+                if (matches != null && matches.length > 0) {
+                    return matches[0].getPath();
+                }
+                // also accept connector jars named mysql-connector-java
+                matches = dir.listFiles((d, name) -> name.toLowerCase().contains("mysql-connector") && name.toLowerCase().endsWith(".jar"));
+                if (matches != null && matches.length > 0) return matches[0].getPath();
+            }
+        }
+        // also try project root paths
+        String[] rootCandidates = new String[] {"lib/mysql-connector-j-9.1.0.jar", "lib\\mysql-connector-j-9.1.0.jar", "lib/mysql-connector-java.jar"};
+        for (String p : rootCandidates) {
+            File f = new File(p);
+            if (f.exists()) return f.getPath();
+        }
+        return null;
     }
 
     private static void loadJdbcDriverFromLib(String relativeJarPath) throws Exception {

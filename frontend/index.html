@@ -11,7 +11,12 @@
         body{background:#f4f8fa;}
         .centered{max-width:1100px;margin:2.5rem auto;}
         .shadow{box-shadow:0 2px 12px rgba(34,34,34,.08)!important;}
-        /* 首页 hero */
+
+        <img :src="state.user.avatar||'/resources/images/default-avatar.jpg'" class="avatar me-2" alt="头像"/>
+
+        <!-- 修改后 -->
+         <img :src="profile.avatar || '/resources/images/default-avatar.jpg'" class="avatar" alt="头像">
+
         .hero-banner{background:linear-gradient(120deg,#2A5298,#1e3c72);color:white;padding:2.2rem;border-radius:12px;margin-bottom:1.5rem;box-shadow:0 8px 30px rgba(33,47,61,.08)}
         .hero-title{font-size:2rem;font-weight:800;letter-spacing:0.2px;margin-bottom:.5rem}
         .hero-sub{opacity:.9;margin-bottom:1rem}
@@ -97,6 +102,10 @@
           opacity: 1;
         }
         .avatar{width:56px;height:56px;object-fit:cover;border-radius:50%;border:2px solid #e3e3e3;background:#fff;}
+        /* Navbar logo (inline with brand text) */
+        .navbar-brand{display:flex;align-items:center;gap:.5rem;font-weight:bold;font-size:1.25rem;color:white!important}
+        .nav-logo{height:48px;object-fit:contain;display:inline-block;background:transparent;border-radius:0;border:0;padding:0;margin:0}
+        @media (max-width:768px){ .nav-logo{height:32px} .navbar-brand{font-size:1rem} }
         .hide{display:none!important;}
         .panel{display:none;}
         .navbar{background: linear-gradient(90deg,#2A5298 0%,#1e3c72 100%);}
@@ -217,10 +226,14 @@
     </style>
 </head>
 <body class="bg-gray-50">
+
 <nav class="navbar navbar-expand-lg shadow">
-  <div class="container-fluid">
-    <a class="navbar-brand" href="#">校园活动报名系统</a>
-    <div class="d-flex align-items-center">
+   <div class="container-fluid">
+    <a class="navbar-brand" href="#">
+      <img src="/resources/images/whut.png" alt="WHUT" class="nav-logo" />
+      <span class="brand-text">校园活动报名系统</span>
+    </a>
+     <div class="d-flex align-items-center">
       <!-- 用户头像和用户名移到导航栏左侧 -->
       <template v-if="state.user">
         <img :src="state.user.avatar||'/default-avatar.png'" class="avatar me-2" alt="头像"/>
@@ -837,3 +850,4 @@
 <script src="app-main.js"></script>
 </body>
 </html>
+
