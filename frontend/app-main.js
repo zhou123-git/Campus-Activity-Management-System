@@ -80,7 +80,7 @@ if(window.Vue){
       const state = reactive({ user: null, view: 'welcome' });
       const loginForm = reactive({ username: '', password: '' });
       const regForm = reactive({ username: '', password: '', email: '' });
-      const profile = reactive({ username: '', email: '', avatar: '/default-avatar.png' });
+      const profile = reactive({ username: '', email: '', avatar: '/resources/images/default-avatar.jpg' });
       const pwdForm = reactive({ oldPwd: '', newPwd: '' });
       const pubForm = reactive({ activityId: '', name: '', desc: '', location: '', startTime: '', endTime: '', maxNum: 0 });
       const pubFormMsg = ref('');
@@ -185,7 +185,8 @@ if(window.Vue){
         const d = await res.json();
         profile.username = d.username||'';
         profile.email = d.email||'';
-        profile.avatar = d.avatar||'/default-avatar.png';
+        // 使用 resources 下的默认头像作为兜底
+        profile.avatar = d.avatar||'/resources/images/defaultUserImage.jpg';
       };
       const doLogin = async ()=>{
         const p = new URLSearchParams({username:loginForm.username,password:loginForm.password});
