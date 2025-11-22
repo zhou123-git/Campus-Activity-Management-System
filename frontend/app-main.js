@@ -103,7 +103,7 @@ if(window.Vue){
         total: 0,
         totalPages: 0
       });
-      
+
       // 活动列表分页数据
       const activityPagination = reactive({
         page: 1,
@@ -111,14 +111,10 @@ if(window.Vue){
         total: 0,
         totalPages: 0
       });
-      
-      // 活动管理分页数据
-      const activityManagementPagination = reactive({
-        page: 1,
-        pageSize: 6,
-        total: 0,
-        totalPages: 0
-      });
+
+      // 搜索/筛选状态
+      const filters = reactive({ startTime: '', endTime: '', location: '', publisher: '', hasAvailable: false });
+      const searching = ref(false);
 
       const load = async ()=>{
         // 检查是否需要分页
@@ -131,79 +127,71 @@ if(window.Vue){
           activities.value = await res.json();
         }
       };
-      
+
       // 加载分页活动列表
       const loadActivitiesWithPagination = async (page = 1, pageSize = 6) => {
         try {
-          const res = await fetch(`/api/activity/list?page=${page}&pageSize=${pageSize}`);
+          // 如果处于搜索状态，请求更大的 pageSize 以便客户端过滤
+          const reqPageSize = searching.value ? Math.max(pageSize, 100) : pageSize;
+          const res = await fetch(`/api/activity/list?page=${page}&pageSize=${reqPageSize}`);
           const data = await res.json();
-          
+
+          let rawList = [];
           if (data.activities) {
-            activities.value = data.activities;
-            // 更新分页信息
-            activityPagination.page = data.page;
-            activityPagination.pageSize = data.pageSize;
-            activityPagination.total = data.total;
-            activityPagination.totalPages = data.totalPages;
+            rawList = data.activities;
+            // 更新分页信息（仅在非搜索时使用后端分页信息）
+            if (!searching.value) {
+              activityPagination.page = data.page;
+              activityPagination.pageSize = data.pageSize;
+              activityPagination.total = data.total;
+              activityPagination.totalPages = data.totalPages;
+            } else {
+              // 搜索时，用后端返回的列表作为候选并重置分页显示
+              activityPagination.page = 1;
+              activityPagination.pageSize = reqPageSize;
+              activityPagination.total = rawList.length;
+              activityPagination.totalPages = 1;
+            }
           } else {
-            // 兼容旧的不分页格式
-            activities.value = data;
+            rawList = data;
+            activityPagination.page = 1;
+            activityPagination.pageSize = rawList.length || reqPageSize;
+            activityPagination.total = rawList.length || 0;
+            activityPagination.totalPages = 1;
+          }
+
+          // 如果在搜索状态，进行客户端过滤
+          if (searching.value) {
+            activities.value = applyClientFilters(rawList);
+          } else {
+            activities.value = rawList;
           }
         } catch (error) {
           console.error('加载活动列表失败:', error);
           activities.value = [];
         }
       };
-      
-      // 加载分页活动管理列表
-      const loadActivitiesForManagement = async (page = 1, pageSize = 6) => {
-        if (!state.user || state.user.role !== 'admin') return;
-        try {
-          const res = await fetch(`/api/activity/all?page=${page}&pageSize=${pageSize}&adminId=${state.user.userId}`);
-          const data = await res.json();
-          
-          if (data.activities) {
-            pendingActivities.value = data.activities;
-            // 更新分页信息
-            activityManagementPagination.page = data.page;
-            activityManagementPagination.pageSize = data.pageSize;
-            activityManagementPagination.total = data.total;
-            activityManagementPagination.totalPages = data.totalPages;
-          } else {
-            // 兼容旧的不分页格式
-            pendingActivities.value = data;
-          }
-        } catch (error) {
-          console.error('加载活动管理列表失败:', error);
-          pendingActivities.value = [];
-        }
-      };
-      
+
       // 计算分页页码数组
-      const getPageNumbers = (paginationType) => {
+      const getPageNumbers = () => {
         const pageNumbers = [];
         // 根据当前视图选择使用哪个分页数据
         let page, totalPages;
-        switch(paginationType) {
-          case 'activity':
-            page = activityPagination.page;
-            totalPages = activityPagination.totalPages;
-            break;
-          case 'activityManagement':
-            page = activityManagementPagination.page;
-            totalPages = activityManagementPagination.totalPages;
-            break;
-          case 'user':
-            page = pagination.page;
-            totalPages = pagination.totalPages;
-            break;
-          default:
-            return [];
+        if (state.view === 'activities') {
+          // 活动列表使用活动分页数据
+          page = activityPagination.page;
+          totalPages = activityPagination.totalPages;
+        } else if (state.view === 'userManagement') {
+          // 用户列表使用用户分页数据
+          page = pagination.page;
+          totalPages = pagination.totalPages;
+        } else {
+          return [];
         }
-        
+
         let start = Math.max(1, page - 2);
         let end = Math.min(totalPages, page + 2);
-        
+
         // 确保显示5个页码（如果可能）
         if (end - start < 4) {
           if (start === 1) {
@@ -212,11 +200,11 @@ if(window.Vue){
             start = Math.max(1, end - 4);
           }
         }
-        
+
         for (let i = start; i <= end; i++) {
           pageNumbers.push(i);
         }
-        
+
         return pageNumbers;
       };
       
@@ -235,17 +223,12 @@ if(window.Vue){
       // 加载所有活动（供管理员在活动管理页面使用）
       const loadAllActivities = async () => {
         if (!state.user || state.user.role !== 'admin') return;
-        // 如果在活动管理页面，使用分页加载
-        if (state.view === 'activityManagement') {
-          await loadActivitiesForManagement(1, 6);
+        const res = await fetch(`/api/activity/all?reviewerId=${state.user.userId}`);
+        const result = await res.json();
+        if (Array.isArray(result)) {
+          pendingActivities.value = result;
         } else {
-          const res = await fetch(`/api/activity/all?reviewerId=${state.user.userId}`);
-          const result = await res.json();
-          if (Array.isArray(result)) {
-            pendingActivities.value = result;
-          } else {
-            pendingActivities.value = [];
-          }
+          pendingActivities.value = [];
         }
       };
       
@@ -301,8 +284,8 @@ if(window.Vue){
         const d = await res.json();
         profile.username = d.username||'';
         profile.email = d.email||'';
-        // 使用 resources 下的默认头像作为兜底
-        profile.avatar = d.avatar||'/resources/images/defaultUserImage.jpg';
+        // 使用 resources 下的默认头像作为兜底（与后端默认路径一致）
+        profile.avatar = (d.avatar || '/resources/images/default-avatar.jpg');
       };
       const doLogin = async ()=>{
         const p = new URLSearchParams({username:loginForm.username,password:loginForm.password});
@@ -353,7 +336,7 @@ if(window.Vue){
           notify('活动报名人数已满，无法报名','warning');
           return;
         }
-        
+
         // Check if user has already registered for this activity
         await loadMyRegs();
         const alreadyRegistered = myRegs.value.some(reg => reg.activityId === aid);
@@ -532,7 +515,7 @@ if(window.Vue){
           await load();
           // 如果在活动管理页面，重新加载待审核活动
           if (state.view === 'activityManagement') {
-            await loadAllActivities();
+            await loadPendingActivities();
           }
           // 如果在活动详情页面且查看的是被审核的活动，更新详情
           if (selectedActivity.value && selectedActivity.value.activityId === activityId) {
@@ -812,6 +795,52 @@ if(window.Vue){
         }
       };
 
+      // 客户端应用筛选（在获取到原始数据后应用）
+      const applyClientFilters = (list) => {
+        return list.filter(a => {
+          // 时间过滤
+          if (filters.startTime) {
+            if (!a.startTime || new Date(a.startTime) < new Date(filters.startTime)) return false;
+          }
+          if (filters.endTime) {
+            if (!a.endTime || new Date(a.endTime) > new Date(filters.endTime)) return false;
+          }
+          // 地点过滤（包含匹配）
+          if (filters.location) {
+            if (!a.location || a.location.toLowerCase().indexOf(filters.location.toLowerCase()) === -1) return false;
+          }
+          // 发布者过滤（匹配用户名或ID）
+          if (filters.publisher) {
+            const pub = (a.publisherName || a.publisherId || '').toString().toLowerCase();
+            if (pub.indexOf(filters.publisher.toLowerCase()) === -1) return false;
+          }
+          // 空余名额过滤
+          if (filters.hasAvailable) {
+            const count = parseInt(a.count || 0, 10);
+            const maxNum = parseInt(a.maxNum || 0, 10);
+            if (isNaN(count) || isNaN(maxNum) || count >= maxNum) return false;
+          }
+          return true;
+        });
+      };
+
+      const applyFilters = async () => {
+        searching.value = true;
+        // 当搜索时，增加请求的 pageSize 以覆盖更多候选项（简单策略）
+        await loadActivitiesWithPagination(1, 100);
+      };
+
+      const resetFilters = () => {
+        filters.startTime = '';
+        filters.endTime = '';
+        filters.location = '';
+        filters.publisher = '';
+        filters.hasAvailable = false;
+        searching.value = false;
+        // 重新加载第一页
+        loadActivitiesWithPagination(1, activityPagination.pageSize);
+      };
+
       // 首次加载
       load();
       return { 
@@ -834,14 +863,13 @@ if(window.Vue){
         editingUser, // 编辑中的用户
         pagination, // 分页数据
         activityPagination, // 活动列表分页数据
-        activityManagementPagination, // 活动管理分页数据
         selectedUser, // 选中的用户
         searchKeyword, // 搜索关键词
         newRole, // 新角色
         load, 
         apply, 
         manage, 
-        showActivityDetail, 
+        showActivityDetail,
         backToPreviousView,
         viewActivityFromReg, 
         doLogin, 
@@ -869,7 +897,6 @@ if(window.Vue){
         setView,
         loadUserList, // 加载用户列表
         loadActivitiesWithPagination, // 加载分页活动列表
-        loadActivitiesForManagement, // 加载分页活动管理列表
         getPageNumbers, // 获取分页页码
         selectUser, // 选中用户
         searchUsers, // 搜索用户
@@ -881,7 +908,8 @@ if(window.Vue){
         deleteUser, // 删除用户
         editUser, // 编辑用户
         updateUser // 更新用户
-      };
+        ,filters, searching, applyFilters, resetFilters
+       };
     }
   });
   window.vueApp = app.mount('#app');

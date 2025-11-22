@@ -417,18 +417,149 @@ public class Server {
     static void handleAvatarUpload(HttpExchange t) throws IOException {
         if (t.getRequestMethod().equals("OPTIONS")) { allowCORS(t); t.sendResponseHeaders(200, -1); return; }
         String contentType = t.getRequestHeaders().getFirst("Content-Type");
-        if (contentType == null) {
-            contentType = t.getRequestHeaders().getFirst("Content-type");
-        }
+        if (contentType == null) contentType = t.getRequestHeaders().getFirst("Content-type");
         if (contentType == null || !contentType.toLowerCase().contains("multipart/form-data")) {
             resp(t, "{\"status\":1,\"msg\":\"Content-Type必须为multipart/form-data\"}");
             return;
         }
-        // (此处建议使用Multipart解析库处理文件数据，简化版处理略)
-        // 直接将文件内容保存为 userId.jpg/png，返回URL
-        // 这里只做接口声明，完整实现需补充文件处理逻辑
-        // ... 留空...
-        resp(t, "{\"status\":0,\"url\":\"/avatars/demo.jpg\"}"); // 示例返回
+
+        // 提取 boundary
+        String boundary = null;
+        String[] parts = contentType.split(";");
+        for (String p : parts) {
+            p = p.trim();
+            if (p.startsWith("boundary=")) {
+                boundary = p.substring(9);
+                if (boundary.startsWith("\"") && boundary.endsWith("\"")) boundary = boundary.substring(1, boundary.length()-1);
+                break;
+            }
+        }
+        if (boundary == null || boundary.isEmpty()) {
+            resp(t, "{\"status\":1,\"msg\":\"缺少boundary\"}");
+            return;
+        }
+
+        // 读取全部请求体（限制 10MB）
+        ByteArrayOutputStream bos = new ByteArrayOutputStream();
+        InputStream is = t.getRequestBody();
+        byte[] buf = new byte[8192];
+        int len;
+        int maxBytes = 10 * 1024 * 1024; // 10MB
+        int totalRead = 0;
+        while ((len = is.read(buf)) != -1) {
+            totalRead += len;
+            if (totalRead > maxBytes) {
+                resp(t, "{\"status\":1,\"msg\":\"文件过大，最大 10MB\"}");
+                return;
+            }
+            bos.write(buf, 0, len);
+        }
+        byte[] bodyBytes = bos.toByteArray();
+
+        // 为了保留二进制，使用 ISO_8859_1 解码/再编码
+        String body = new String(bodyBytes, StandardCharsets.ISO_8859_1);
+        String[] segments = body.split("--" + boundary);
+        String userId = null;
+        String origFileName = null;
+        byte[] fileBytes = null;
+
+        for (String seg : segments) {
+            seg = seg.trim();
+            if (seg.isEmpty() || seg.equals("--")) continue;
+            int idx = seg.indexOf("\r\n\r\n");
+            if (idx < 0) continue;
+            String headers = seg.substring(0, idx);
+            String content = seg.substring(idx + 4);
+
+            // 解析 Content-Disposition 查找 name 和 filename
+            String cd = null;
+            String[] headerLines = headers.split("\r\n");
+            for (String hl : headerLines) {
+                if (hl.toLowerCase().startsWith("content-disposition:")) {
+                    cd = hl.substring(hl.indexOf(":") + 1).trim();
+                    break;
+                }
+            }
+            if (cd == null) continue;
+
+            // 提取 name
+            String name = null;
+            String filename = null;
+            String[] cdParts = cd.split(";");
+            for (String cp : cdParts) {
+                cp = cp.trim();
+                if (cp.startsWith("name=")) {
+                    name = cp.substring(5).trim();
+                    if (name.startsWith("\"") && name.endsWith("\"")) name = name.substring(1, name.length()-1);
+                } else if (cp.startsWith("filename=")) {
+                    filename = cp.substring(9).trim();
+                    if (filename.startsWith("\"") && filename.endsWith("\"")) filename = filename.substring(1, filename.length()-1);
+                }
+            }
+
+            if (filename != null && !filename.isEmpty()) {
+                // 文件内容：content 中末尾可能带有 \r\n，去掉
+                if (content.endsWith("\r\n")) content = content.substring(0, content.length()-2);
+                fileBytes = content.getBytes(StandardCharsets.ISO_8859_1);
+                origFileName = filename;
+            } else if ("userId".equals(name)) {
+                if (content.endsWith("\r\n")) content = content.substring(0, content.length()-2);
+                userId = content;
+            }
+        }
+
+        if (fileBytes == null) {
+            resp(t, "{\"status\":1,\"msg\":\"未找到上传文件\"}");
+            return;
+        }
+        if (userId == null || userId.isEmpty()) {
+            resp(t, "{\"status\":1,\"msg\":\"缺少 userId 字段\"}");
+            return;
+        }
+
+        // 保存到 resources/images
+        String baseDir = System.getProperty("user.dir");
+        java.io.File imagesDir = new java.io.File(baseDir + "/resources/images");
+        if (!imagesDir.exists()) imagesDir.mkdirs();
+
+        String ext = ".jpg";
+        if (origFileName != null) {
+            int dot = origFileName.lastIndexOf('.');
+            if (dot >= 0) ext = origFileName.substring(dot).toLowerCase();
+            if (!ext.matches("\\.(jpg|jpeg|png|gif)")) ext = ".jpg";
+        }
+        String outName = userId + ext;
+        java.io.File outFile = new java.io.File(imagesDir, outName);
+        try {
+            java.nio.file.Files.write(outFile.toPath(), fileBytes);
+        } catch (Exception e) {
+            e.printStackTrace();
+            resp(t, "{\"status\":1,\"msg\":\"保存文件失败\"}");
+            return;
+        }
+
+        // 更新数据库中的 avatar 字段为 /resources/images/<name>
+        String avatarPath = "/resources/images/" + outName;
+        try {
+            // 先获取用户原始信息
+            entity.User u = userService.getUserInfo(userId);
+            if (u != null) {
+                boolean ok = userService.updateUser(userId, u.getUsername(), u.getEmail(), avatarPath);
+                if (!ok) {
+                    resp(t, "{\"status\":1,\"msg\":\"更新用户头像失败\"}");
+                    return;
+                }
+            } else {
+                // 用户不存在但文件已保存：继续返回可访问URL
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+            resp(t, "{\"status\":1,\"msg\":\"更新用户信息出错\"}");
+            return;
+        }
+
+        // Update DB and return URL (add cache-buster)
+        resp(t, String.format("{\"status\":0,\"url\":\"%s?t=%d\"}", avatarPath, System.currentTimeMillis()));
     }
     // 管理端审核活动
     static void handleActivityReview(HttpExchange t) throws IOException {

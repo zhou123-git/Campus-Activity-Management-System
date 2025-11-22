@@ -12,11 +12,6 @@
         .centered{max-width:1100px;margin:2.5rem auto;}
         .shadow{box-shadow:0 2px 12px rgba(34,34,34,.08)!important;}
 
-        <img :src="state.user.avatar||'/resources/images/default-avatar.jpg'" class="avatar me-2" alt="头像"/>
-
-        <!-- 修改后 -->
-         <img :src="profile.avatar || '/resources/images/default-avatar.jpg'" class="avatar" alt="头像">
-
         .hero-banner{background:linear-gradient(120deg,#2A5298,#1e3c72);color:white;padding:2.2rem;border-radius:12px;margin-bottom:1.5rem;box-shadow:0 8px 30px rgba(33,47,61,.08)}
         .hero-title{font-size:2.5rem;font-weight:800;letter-spacing:0.2px;margin-bottom:.5rem}
         .hero-sub{opacity:.9;margin-bottom:1rem;font-size:1.2rem}
@@ -240,7 +235,7 @@
      <div class="d-flex align-items-center">
       <!-- 用户头像和用户名移到导航栏左侧 -->
       <template v-if="state.user">
-        <img :src="state.user.avatar||'/default-avatar.png'" class="avatar me-2" alt="头像"/>
+        <img :src="state.user.avatar||'/resources/images/default-avatar.jpg'" class="avatar me-2" alt="头像"/>
         <span class="me-3 text-white">{{ state.user.username }}</span>
       </template>
     </div>
@@ -259,7 +254,7 @@
       <div>
         <!-- User avatar and username on the left -->
         <template v-if="state.user">
-          <img :src="state.user.avatar||'/default-avatar.png'" class="avatar me-2" alt="头像"/>
+          <img :src="state.user.avatar||'/resources/images/default-avatar.jpg'" class="avatar me-2" alt="头像"/>
           <span class="me-2">{{ state.user.username }}</span>
         </template>
       </div>
@@ -302,72 +297,112 @@
           <h5 class="mb-0">活动列表</h5>
         </div>
         <div class="card-body">
-          <!-- 网格布局显示活动 -->
-          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            <div class="activity-card ant-card-hoverable rounded-xl overflow-hidden" v-for="a in activities" :key="a.activityId">
-              <div class="p-5 h-full flex flex-col bg-white">
-                <h5 class="text-indigo-600 font-bold text-lg mb-3">{{ a.activityName }}</h5>
-                <div class="flex-grow">
-                  <p class="text-gray-500 text-sm mb-2">
-                    <i class="far fa-calendar-alt mr-2"></i>
-                    时间：{{ (a.startTime||'').replace('T',' ') }} ~ {{ (a.endTime||'').replace('T',' ') }}
-                  </p>
-                  <p class="text-gray-500 text-sm mb-2">
-                    <i class="fas fa-map-marker-alt mr-2"></i>
-                    地点：{{ a.location }}
-                  </p>
-                  <p class="text-gray-500 text-sm mb-2">
-                    <i class="fas fa-user mr-2"></i>
-                    发布者：{{ a.publisherName || a.publisherId }}
-                  </p>
-                  <p class="text-gray-500 text-sm mb-2">
-                    <i class="fas fa-users mr-2"></i>
-                    人数：{{ a.count||0 }}/{{ a.maxNum||0 }}
-                  </p>
+          <!-- 新增：搜索/筛选与列表并排布局 -->
+          <div class="row">
+            <!-- 筛选面板（左侧） -->
+            <div class="col-12 col-md-4 col-lg-3 mb-3">
+              <div class="ant-card p-3">
+                <h6 class="mb-3">筛选活动</h6>
+                <div class="mb-2">
+                  <label class="form-label">开始时间</label>
+                  <input type="datetime-local" class="form-control" v-model="filters.startTime" />
                 </div>
-                <div class="flex justify-between mt-4 space-x-2">
-                  <button 
-                    class="flex-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-medium py-2 px-3 rounded-lg transition duration-200 ease-in-out transform hover:-translate-y-0.5"
-                    @click="showActivityDetail(a)"
-                  >
-                    查看详情
-                  </button>
-                  <button 
-                    class="flex-1 bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white font-medium py-2 px-3 rounded-lg transition duration-200 ease-in-out transform hover:-translate-y-0.5" 
-                    @click="apply(a.activityId, a.maxNum, a.count)"
-                    :disabled="a.status !== 'approved'">
-                    报名
-                  </button>
+                <div class="mb-2">
+                  <label class="form-label">结束时间</label>
+                  <input type="datetime-local" class="form-control" v-model="filters.endTime" />
+                </div>
+                <div class="mb-2">
+                  <label class="form-label">地点</label>
+                  <input type="text" class="form-control" placeholder="例如：教学楼、礼堂" v-model="filters.location" />
+                </div>
+                <div class="mb-2">
+                  <label class="form-label">发布者</label>
+                  <input type="text" class="form-control" placeholder="用户名或ID" v-model="filters.publisher" />
+                </div>
+                <div class="form-check mb-3">
+                  <input class="form-check-input" type="checkbox" id="hasAvailable" v-model="filters.hasAvailable">
+                  <label class="form-check-label" for="hasAvailable">仅显示有空余名额的活动</label>
+                </div>
+                <div class="d-flex gap-2">
+                  <button class="ant-btn ant-btn-primary flex-grow-1" @click="applyFilters">搜索</button>
+                  <button class="ant-btn ant-btn-default flex-grow-1" @click="resetFilters">重置</button>
                 </div>
               </div>
             </div>
-          </div>
-          
-          <!-- 无数据提示 -->
-          <div v-if="activities.length === 0" class="text-center text-muted py-4">
-            暂无活动
-          </div>
-          
-          <!-- 活动列表分页控件 -->
-          <div class="pagination-container mt-4" v-if="activityPagination.totalPages > 1">
-            <nav aria-label="活动列表分页">
-              <ul class="pagination justify-content-center">
-                <li class="page-item" :class="{ disabled: activityPagination.page <= 1 }">
-                  <a class="page-link" href="javascript:void(0)" @click="loadActivitiesWithPagination(activityPagination.page - 1, activityPagination.pageSize)">上一页</a>
-                </li>
-                
-                <li class="page-item" v-for="n in getPageNumbers()" :key="n" :class="{ active: n === activityPagination.page }">
-                  <a class="page-link" href="javascript:void(0)" @click="loadActivitiesWithPagination(n, activityPagination.pageSize)">{{ n }}</a>
-                </li>
-                
-                <li class="page-item" :class="{ disabled: activityPagination.page >= activityPagination.totalPages }">
-                  <a class="page-link" href="javascript:void(0)" @click="loadActivitiesWithPagination(activityPagination.page + 1, activityPagination.pageSize)">下一页</a>
-                </li>
-              </ul>
-            </nav>
-            
-            <div class="text-center text-muted small">
-              共 {{ activityPagination.total }} 条记录，第 {{ activityPagination.page }} / {{ activityPagination.totalPages }} 页
+
+            <!-- 列表区域（右侧） -->
+            <div class="col-12 col-md-8 col-lg-9">
+              <!-- 网格布局显示活动 -->
+              <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                <div class="activity-card ant-card-hoverable rounded-xl overflow-hidden" v-for="a in activities" :key="a.activityId">
+                  <div class="p-5 h-full flex flex-col bg-white">
+                    <div class="d-flex justify-content-between align-items-start mb-2">
+                      <h5 class="text-indigo-600 font-bold text-lg m-0">{{ a.activityName }}</h5>
+                      <span :class="getActivityStatusClass(a.status)" class="badge">{{ getActivityStatusText(a.status) }}</span>
+                    </div>
+                    <div class="flex-grow">
+                      <p class="text-gray-500 text-sm mb-2">
+                        <i class="far fa-calendar-alt mr-2"></i>
+                        时间：{{ (a.startTime||'').replace('T',' ') }} ~ {{ (a.endTime||'').replace('T',' ') }}
+                      </p>
+                      <p class="text-gray-500 text-sm mb-2">
+                        <i class="fas fa-map-marker-alt mr-2"></i>
+                        地点：{{ a.location }}
+                      </p>
+                      <p class="text-gray-500 text-sm mb-2">
+                        <i class="fas fa-user mr-2"></i>
+                        发布者：{{ a.publisherName || a.publisherId }}
+                      </p>
+                      <p class="text-gray-500 text-sm mb-2 d-flex align-items-center justify-content-between">
+                        <span><i class="fas fa-users mr-2"></i> 人数：{{ a.count||0 }}/{{ a.maxNum||0 }}</span>
+                        <small class="text-muted">ID: {{ a.activityId }}</small>
+                      </p>
+                    </div>
+                    <div class="flex justify-between mt-4 space-x-2">
+                      <button
+                        class="flex-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-medium py-2 px-3 rounded-lg transition duration-200 ease-in-out transform hover:-translate-y-0.5"
+                        @click="showActivityDetail(a)"
+                      >
+                        查看详情
+                      </button>
+                      <button
+                        class="flex-1 bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white font-medium py-2 px-3 rounded-lg transition duration-200 ease-in-out transform hover:-translate-y-0.5"
+                        @click="apply(a.activityId, a.maxNum, a.count)"
+                        :disabled="a.status !== 'approved'">
+                        报名
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- 无数据提示 -->
+              <div v-if="activities.length === 0" class="text-center text-muted py-4">
+                暂无活动
+              </div>
+
+              <!-- 活动列表分页控件 -->
+              <div class="pagination-container mt-4" v-if="!searching && activityPagination.totalPages > 1">
+                <nav aria-label="活动列表分页">
+                  <ul class="pagination justify-content-center">
+                    <li class="page-item" :class="{ disabled: activityPagination.page <= 1 }">
+                      <a class="page-link" href="javascript:void(0)" @click="loadActivitiesWithPagination(activityPagination.page - 1, activityPagination.pageSize)">上一页</a>
+                    </li>
+
+                    <li class="page-item" v-for="n in getPageNumbers()" :key="n" :class="{ active: n === activityPagination.page }">
+                      <a class="page-link" href="javascript:void(0)" @click="loadActivitiesWithPagination(n, activityPagination.pageSize)">{{ n }}</a>
+                    </li>
+
+                    <li class="page-item" :class="{ disabled: activityPagination.page >= activityPagination.totalPages }">
+                      <a class="page-link" href="javascript:void(0)" @click="loadActivitiesWithPagination(activityPagination.page + 1, activityPagination.pageSize)">下一页</a>
+                    </li>
+                  </ul>
+                </nav>
+
+                <div class="text-center text-muted small">
+                  共 {{ activityPagination.total }} 条记录，第 {{ activityPagination.page }} / {{ activityPagination.totalPages }} 页
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -730,7 +765,7 @@
         </div>
         <div style="margin-left:auto;display:flex;flex-direction:column;align-items:flex-end;gap:6px">
           <label for="avatarFile" class="ant-btn ant-btn-primary" style="cursor:pointer">上传头像</label>
-          <small class="text-muted">支持 JPG/PNG，最大 2MB</small>
+          <small class="text-muted">支持 JPG/PNG，最大 10MB</small>
           <input id="avatarFile" type="file" accept="image/*" style="position:absolute;left:-9999px;" aria-label="上传头像文件" @change="uploadAvatar($event)">
         </div>
       </div>
