@@ -103,7 +103,7 @@ if(window.Vue){
         total: 0,
         totalPages: 0
       });
-      
+
       // 活动列表分页数据
       const activityPagination = reactive({
         page: 1,
@@ -111,6 +111,10 @@ if(window.Vue){
         total: 0,
         totalPages: 0
       });
+
+      // 搜索/筛选状态
+      const filters = reactive({ startTime: '', endTime: '', location: '', publisher: '', hasAvailable: false });
+      const searching = ref(false);
 
       const load = async ()=>{
         // 检查是否需要分页
@@ -123,30 +127,51 @@ if(window.Vue){
           activities.value = await res.json();
         }
       };
-      
+
       // 加载分页活动列表
       const loadActivitiesWithPagination = async (page = 1, pageSize = 6) => {
         try {
-          const res = await fetch(`/api/activity/list?page=${page}&pageSize=${pageSize}`);
+          // 如果处于搜索状态，请求更大的 pageSize 以便客户端过滤
+          const reqPageSize = searching.value ? Math.max(pageSize, 100) : pageSize;
+          const res = await fetch(`/api/activity/list?page=${page}&pageSize=${reqPageSize}`);
           const data = await res.json();
-          
+
+          let rawList = [];
           if (data.activities) {
-            activities.value = data.activities;
-            // 更新分页信息
-            activityPagination.page = data.page;
-            activityPagination.pageSize = data.pageSize;
-            activityPagination.total = data.total;
-            activityPagination.totalPages = data.totalPages;
+            rawList = data.activities;
+            // 更新分页信息（仅在非搜索时使用后端分页信息）
+            if (!searching.value) {
+              activityPagination.page = data.page;
+              activityPagination.pageSize = data.pageSize;
+              activityPagination.total = data.total;
+              activityPagination.totalPages = data.totalPages;
+            } else {
+              // 搜索时，用后端返回的列表作为候选并重置分页显示
+              activityPagination.page = 1;
+              activityPagination.pageSize = reqPageSize;
+              activityPagination.total = rawList.length;
+              activityPagination.totalPages = 1;
+            }
           } else {
-            // 兼容旧的不分页格式
-            activities.value = data;
+            rawList = data;
+            activityPagination.page = 1;
+            activityPagination.pageSize = rawList.length || reqPageSize;
+            activityPagination.total = rawList.length || 0;
+            activityPagination.totalPages = 1;
+          }
+
+          // 如果在搜索状态，进行客户端过滤
+          if (searching.value) {
+            activities.value = applyClientFilters(rawList);
+          } else {
+            activities.value = rawList;
           }
         } catch (error) {
           console.error('加载活动列表失败:', error);
           activities.value = [];
         }
       };
-      
+
       // 计算分页页码数组
       const getPageNumbers = () => {
         const pageNumbers = [];
@@ -163,10 +188,10 @@ if(window.Vue){
         } else {
           return [];
         }
-        
+
         let start = Math.max(1, page - 2);
         let end = Math.min(totalPages, page + 2);
-        
+
         // 确保显示5个页码（如果可能）
         if (end - start < 4) {
           if (start === 1) {
@@ -175,11 +200,11 @@ if(window.Vue){
             start = Math.max(1, end - 4);
           }
         }
-        
+
         for (let i = start; i <= end; i++) {
           pageNumbers.push(i);
         }
-        
+
         return pageNumbers;
       };
       
@@ -259,8 +284,8 @@ if(window.Vue){
         const d = await res.json();
         profile.username = d.username||'';
         profile.email = d.email||'';
-        // 使用 resources 下的默认头像作为兜底
-        profile.avatar = d.avatar||'/resources/images/defaultUserImage.jpg';
+        // 使用 resources 下的默认头像作为兜底（与后端默认路径一致）
+        profile.avatar = (d.avatar || '/resources/images/default-avatar.jpg');
       };
       const doLogin = async ()=>{
         const p = new URLSearchParams({username:loginForm.username,password:loginForm.password});
@@ -311,7 +336,7 @@ if(window.Vue){
           notify('活动报名人数已满，无法报名','warning');
           return;
         }
-        
+
         // Check if user has already registered for this activity
         await loadMyRegs();
         const alreadyRegistered = myRegs.value.some(reg => reg.activityId === aid);
@@ -770,6 +795,52 @@ if(window.Vue){
         }
       };
 
+      // 客户端应用筛选（在获取到原始数据后应用）
+      const applyClientFilters = (list) => {
+        return list.filter(a => {
+          // 时间过滤
+          if (filters.startTime) {
+            if (!a.startTime || new Date(a.startTime) < new Date(filters.startTime)) return false;
+          }
+          if (filters.endTime) {
+            if (!a.endTime || new Date(a.endTime) > new Date(filters.endTime)) return false;
+          }
+          // 地点过滤（包含匹配）
+          if (filters.location) {
+            if (!a.location || a.location.toLowerCase().indexOf(filters.location.toLowerCase()) === -1) return false;
+          }
+          // 发布者过滤（匹配用户名或ID）
+          if (filters.publisher) {
+            const pub = (a.publisherName || a.publisherId || '').toString().toLowerCase();
+            if (pub.indexOf(filters.publisher.toLowerCase()) === -1) return false;
+          }
+          // 空余名额过滤
+          if (filters.hasAvailable) {
+            const count = parseInt(a.count || 0, 10);
+            const maxNum = parseInt(a.maxNum || 0, 10);
+            if (isNaN(count) || isNaN(maxNum) || count >= maxNum) return false;
+          }
+          return true;
+        });
+      };
+
+      const applyFilters = async () => {
+        searching.value = true;
+        // 当搜索时，增加请求的 pageSize 以覆盖更多候选项（简单策略）
+        await loadActivitiesWithPagination(1, 100);
+      };
+
+      const resetFilters = () => {
+        filters.startTime = '';
+        filters.endTime = '';
+        filters.location = '';
+        filters.publisher = '';
+        filters.hasAvailable = false;
+        searching.value = false;
+        // 重新加载第一页
+        loadActivitiesWithPagination(1, activityPagination.pageSize);
+      };
+
       // 首次加载
       load();
       return { 
@@ -798,7 +869,7 @@ if(window.Vue){
         load, 
         apply, 
         manage, 
-        showActivityDetail, 
+        showActivityDetail,
         backToPreviousView,
         viewActivityFromReg, 
         doLogin, 
