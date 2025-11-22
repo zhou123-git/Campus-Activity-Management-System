@@ -563,6 +563,17 @@ public class Server {
             return;
         }
         
+        // 检查是否尝试修改自己的角色
+        String targetUserId = map.get("userId");
+        if (adminId.equals(targetUserId)) {
+            // 如果是修改自己的信息，不允许修改角色
+            String newRole = map.getOrDefault("role", "user");
+            if (!newRole.equals(admin.getRole())) {
+                resp(t, "{\"status\":1,\"msg\":\"不能修改自己的角色\"}");
+                return;
+            }
+        }
+        
         // 更新用户信息
         boolean ok = userService.updateUserByAdmin(
             map.get("userId"), 

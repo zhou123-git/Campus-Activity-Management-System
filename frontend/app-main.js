@@ -487,6 +487,12 @@ if(window.Vue){
           return;
         }
         
+        // 检查是否尝试修改自己的角色
+        if (selectedUser.value.userId === state.user.userId) {
+          notify('不能修改自己的角色', 'warning');
+          return;
+        }
+        
         // 检查角色是否发生变化
         if (newRole.value === selectedUser.value.role) {
           notify('用户角色未发生变化', 'warning');
