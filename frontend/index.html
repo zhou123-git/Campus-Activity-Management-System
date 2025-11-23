@@ -301,7 +301,7 @@
           <!-- 一级导航（中文标签式）和内嵌二级菜单：二级菜单放在对应的一级项下方并右移一个字符长度以示层级 -->
           <div class="left-tabs" role="tablist">
             <div :class="['left-tab', topNav==='活动中心' ? 'active' : '']" @click="selectTopNav('活动中心')">
-              活动中心
+              <i class="fas fa-calendar-alt mr-2"></i>活动中心
               <div class="sub-menu" v-if="topNav==='活动中心'">
                 <a href="javascript:void(0)" :class="{active: sideMenu==='活动列表'}" @click.stop="selectSideMenu('活动列表')">活动列表</a>
                 <a href="javascript:void(0)" :class="{active: sideMenu==='我的报名'}" @click.stop="selectSideMenu('我的报名')">我的报名</a>
@@ -310,7 +310,7 @@
             </div>
 
             <div v-if="state.user && state.user.role==='admin'" :class="['left-tab', topNav==='活动管理' ? 'active' : '']" @click="selectTopNav('活动管理')">
-              活动管理
+              <i class="fas fa-tasks mr-2"></i>活动管理
               <div class="sub-menu" v-if="topNav==='活动管理'">
                 <a href="javascript:void(0)" :class="{active: sideMenu==='发布活动'}" @click.stop="selectSideMenu('发布活动')">发布活动</a>
                 <a href="javascript:void(0)" :class="{active: sideMenu==='活动管理列表'}" @click.stop="selectSideMenu('活动管理列表')">活动管理列表</a>
@@ -318,14 +318,14 @@
             </div>
 
             <div v-if="state.user && state.user.role==='admin'" :class="['left-tab', topNav==='用户管理' ? 'active' : '']" @click="selectTopNav('用户管理')">
-              用户管理
+              <i class="fas fa-users mr-2"></i>用户管理
               <div class="sub-menu" v-if="topNav==='用户管理'">
                 <a href="javascript:void(0)" :class="{active: sideMenu==='用户列表'}" @click.stop="selectSideMenu('用户列表')">用户列表</a>
               </div>
             </div>
 
             <div :class="['left-tab', topNav==='个人中心' ? 'active' : '']" @click="selectTopNav('个人中心')">
-              个人中心
+              <i class="fas fa-user-circle mr-2"></i>个人中心
               <div class="sub-menu" v-if="topNav==='个人中心'">
                 <a href="javascript:void(0)" :class="{active: sideMenu==='我的信息'}" @click.stop="selectSideMenu('我的信息')">我的信息</a>
                 <a href="javascript:void(0)" :class="{active: sideMenu==='修改密码'}" @click.stop="selectSideMenu('修改密码')">修改密码</a>
@@ -462,7 +462,7 @@
                 </div>
 
                 <!-- 活动列表分页控件 -->
-                <div class="pagination-container mt-4" v-if="!searching && activityPagination.totalPages > 1">
+                <div class="pagination-container mt-4" v-if="activityPagination.totalPages > 1">
                   <nav aria-label="活动列表分页">
                     <ul class="pagination justify-content-center">
                       <li class="page-item" :class="{ disabled: activityPagination.page <= 1 }">
@@ -491,7 +491,7 @@
 
       <!-- 活动管理列表 -->
       <div v-if="state.view==='activityManagement' && state.user && state.user.role === 'admin'">
-        <h5 class="mb-3 text-orange-500 font-bold text-lg">活动管理</h5>
+        <h5 class="mb-3 text-orange-500 font-bold text-lg">活动管理列表</h5>
         <div v-if="pendingActivities.length===0" class="text-muted p-4 text-center bg-white rounded">暂无活动</div>
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           <div class="activity-card ant-card-hoverable rounded-xl overflow-hidden" v-for="a in pendingActivities" :key="a.activityId">
@@ -590,7 +590,7 @@
 
       <!-- 用户管理界面 -->
       <div class="card shadow centered p-4 mt-4" v-if="state.view==='userManagement' && state.user && state.user.role === 'admin'">
-        <h5 class="mb-3 text-blue-500 font-bold text-lg">用户管理</h5>
+        <h5 class="mb-3 text-orange-500 font-bold text-lg">用户管理</h5>
 
         <!-- 搜索框 -->
         <div class="card mb-4">
@@ -880,7 +880,7 @@
 
       <!-- 我的活动 -->
       <div class="card shadow centered p-4 mt-4" v-if="state.view==='myact' && state.user">
-        <h5 class="mb-3 text-green-600">我发布的活动</h5>
+        <h5 class="mb-3 text-orange-500 font-bold text-lg">我发布的活动</h5>
         <div v-if="myActs.length===0" class="text-muted">你还没有发布活动</div>
         <div class="overflow-x-auto">
           <table class="table table-striped text-center align-middle">
@@ -932,7 +932,7 @@
 
       <!-- 活动报名管理 -->
       <div class="card shadow centered p-4 mt-4" v-if="state.view==='manage' && state.user">
-        <h5 class="mb-3 text-orange-500">活动报名管理</h5>
+        <h5 class="mb-3 text-orange-500 font-bold text-lg">活动报名管理</h5>
         <div class="input-group mb-3">
           <span class="input-group-text">活动ID</span>
           <input class="form-control" :value="manageState.activityId" readonly />

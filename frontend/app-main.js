@@ -117,7 +117,8 @@ function closeNotification(id) {
           state.view = 'activities';
           await loadActivitiesWithPagination(1, 6);
         } else if (name === '活动管理') {
-          sideMenu.value = '发布活动';
+          // 默认切到活动管理列表而不是发布活动
+          sideMenu.value = '活动管理列表';
           state.view = 'activityManagement';
           await loadAllActivities();
         } else if (name === '个人中心') {
@@ -190,34 +191,36 @@ function closeNotification(id) {
            const data = await res.json();
 
            let rawList = [];
-           if (data.activities) {
-             rawList = data.activities;
-             // 更新分页信息（仅在非搜索时使用后端分页信息）
-             if (!searching.value) {
-               activityPagination.page = data.page;
-               activityPagination.pageSize = data.pageSize;
-               activityPagination.total = data.total;
-               activityPagination.totalPages = data.totalPages;
+           if (data.activities) rawList = data.activities;
+           else rawList = data;
+
+           if (!searching.value) {
+             // 非搜索时使用后端分页信息（保持原有行为）
+             if (data.activities) {
+               activityPagination.page = data.page || page;
+               activityPagination.pageSize = data.pageSize || pageSize;
+               activityPagination.total = data.total || (rawList.length || 0);
+               activityPagination.totalPages = data.totalPages || Math.max(1, Math.ceil((activityPagination.total || 0) / activityPagination.pageSize));
+               activities.value = rawList;
              } else {
-               // 搜索时，用后端返回的列表作为候选并重置分页显示
                activityPagination.page = 1;
-               activityPagination.pageSize = reqPageSize;
-               activityPagination.total = rawList.length;
-               activityPagination.totalPages = 1;
+               activityPagination.pageSize = rawList.length || pageSize;
+               activityPagination.total = rawList.length || 0;
+               activityPagination.totalPages = Math.max(1, Math.ceil(activityPagination.total / activityPagination.pageSize));
+               activities.value = rawList;
              }
            } else {
-             rawList = data;
-             activityPagination.page = 1;
-             activityPagination.pageSize = rawList.length || reqPageSize;
-             activityPagination.total = rawList.length || 0;
-             activityPagination.totalPages = 1;
-           }
-
-           // 如果在搜索状态，进行客户端过滤
-           if (searching.value) {
-             activities.value = applyClientFilters(rawList);
-           } else {
-             activities.value = rawList;
+             // 搜索时：在客户端进行过滤并做 client-side pagination（保留分页控件）
+             const filtered = applyClientFilters(rawList);
+             activityPagination.page = page;
+             // keep the visible pageSize as the requested pageSize param to allow paging through results
+             activityPagination.pageSize = pageSize || 6;
+             activityPagination.total = filtered.length;
+             activityPagination.totalPages = Math.max(1, Math.ceil(activityPagination.total / activityPagination.pageSize));
+             // slice for the requested page
+             const start = (page - 1) * activityPagination.pageSize;
+             const end = start + activityPagination.pageSize;
+             activities.value = filtered.slice(start, end);
            }
          } catch (error) {
            console.error('加载活动列表失败:', error);
