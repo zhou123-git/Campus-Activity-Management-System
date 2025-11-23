@@ -306,13 +306,13 @@
                 <a href="javascript:void(0)" :class="{active: sideMenu==='活动列表'}" @click.stop="selectSideMenu('活动列表')">活动列表</a>
                 <a href="javascript:void(0)" :class="{active: sideMenu==='我的报名'}" @click.stop="selectSideMenu('我的报名')">我的报名</a>
                 <a href="javascript:void(0)" :class="{active: sideMenu==='我的活动'}" @click.stop="selectSideMenu('我的活动')">我的活动</a>
+                <a href="javascript:void(0)" :class="{active: sideMenu==='发布活动'}" @click.stop="selectSideMenu('发布活动')">发布活动</a>
               </div>
             </div>
 
             <div v-if="state.user && state.user.role==='admin'" :class="['left-tab', topNav==='活动管理' ? 'active' : '']" @click="selectTopNav('活动管理')">
               <i class="fas fa-tasks mr-2"></i>活动管理
               <div class="sub-menu" v-if="topNav==='活动管理'">
-                <a href="javascript:void(0)" :class="{active: sideMenu==='发布活动'}" @click.stop="selectSideMenu('发布活动')">发布活动</a>
                 <a href="javascript:void(0)" :class="{active: sideMenu==='活动管理列表'}" @click.stop="selectSideMenu('活动管理列表')">活动管理列表</a>
               </div>
             </div>
@@ -834,7 +834,7 @@
 
         <div class="mb-3 profile-field">
           <label class="form-label">用户名</label>
-          <input class="form-control profile-input" v-model.trim="profile.username" placeholder="用户名">
+          <input class="form-control profile-input" :value="profile.username" readonly>
         </div>
 
         <div class="mb-3 profile-field">
@@ -843,13 +843,34 @@
         </div>
 
         <div class="profile-actions">
-          <button class="ant-btn ant-btn-primary" @click="updateInfo">保存信息</button>
-          <button class="ant-btn ant-btn-default" @click="state.view='pwd'">修改密码</button>
           <button class="ant-btn ant-btn-danger" @click="logout">退出登录</button>
         </div>
       </div>
 
       <!-- 修改密码 -->
+      <div class="card shadow centered p-4 mt-4" v-if="state.view==='pwd' && state.user">
+        <h5 class="mb-3">修改密码和用户名</h5>
+        <div class="mb-3">
+          <label class="form-label">当前用户名</label>
+          <input class="form-control mb-2" :value="state.user.username" readonly>
+        </div>
+        <div class="mb-3">
+          <label class="form-label">新用户名</label>
+          <input class="form-control mb-2" v-model.trim="pwdForm.newUsername" placeholder="新用户名">
+        </div>
+        <div class="mb-3">
+          <label class="form-label">当前密码</label>
+          <input type="password" class="form-control mb-2" v-model.trim="pwdForm.oldPwd" placeholder="当前密码">
+        </div>
+        <div class="mb-3">
+          <label class="form-label">新密码</label>
+          <input type="password" class="form-control mb-2" v-model.trim="pwdForm.newPwd" placeholder="新密码">
+        </div>
+        <div class="d-flex gap-2">
+          <button class="ant-btn ant-btn-success" @click="confirmChangePwd">确认修改</button>
+        </div>
+      </div>
+
       <!-- 发布/编辑活动 -->
       <div class="card shadow centered p-4 mt-4" v-if="state.view==='publish' && state.user">
         <h5 class="mb-3" v-text="pubForm.activityId ? '编辑活动' : '发布新活动'"></h5>
@@ -965,12 +986,6 @@
           </table>
         </div>
         <button class="ant-btn ant-btn-default" @click="state.view='myact'">返回我的活动</button>
-      </div>
-      <div class="card shadow centered p-4 mt-4" v-if="state.view==='pwd' && state.user">
-        <h5 class="mb-3">修改密码</h5>
-        <input type="password" class="form-control mb-2" v-model.trim="pwdForm.oldPwd" placeholder="当前密码">
-        <input type="password" class="form-control mb-2" v-model.trim="pwdForm.newPwd" placeholder="新密码"><button class="ant-btn ant-btn-default" @click="cancelPublish">返回</button>
-        <button class="ant-btn ant-btn-success w-full" @click="changePwd">提交修改</button>
       </div>
     </div>
   </div>
