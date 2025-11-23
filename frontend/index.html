@@ -12,11 +12,6 @@
         .centered{max-width:1100px;margin:2.5rem auto;}
         .shadow{box-shadow:0 2px 12px rgba(34,34,34,.08)!important;}
 
-        <img :src="state.user.avatar||'/resources/images/default-avatar.jpg'" class="avatar me-2" alt="头像"/>
-
-        <!-- 修改后 -->
-         <img :src="profile.avatar || '/resources/images/default-avatar.jpg'" class="avatar" alt="头像">
-
         .hero-banner{background:linear-gradient(120deg,#2A5298,#1e3c72);color:white;padding:2.2rem;border-radius:12px;margin-bottom:1.5rem;box-shadow:0 8px 30px rgba(33,47,61,.08)}
         .hero-title{font-size:2.5rem;font-weight:800;letter-spacing:0.2px;margin-bottom:.5rem}
         .hero-sub{opacity:.9;margin-bottom:1rem;font-size:1.2rem}
@@ -240,7 +235,7 @@
      <div class="d-flex align-items-center">
       <!-- 用户头像和用户名移到导航栏左侧 -->
       <template v-if="state.user">
-        <img :src="state.user.avatar||'/default-avatar.png'" class="avatar me-2" alt="头像"/>
+        <img :src="state.user.avatar||'/resources/images/default-avatar.jpg'" class="avatar me-2" alt="头像"/>
         <span class="me-3 text-white">{{ state.user.username }}</span>
       </template>
     </div>
@@ -259,7 +254,7 @@
       <div>
         <!-- User avatar and username on the left -->
         <template v-if="state.user">
-          <img :src="state.user.avatar||'/default-avatar.png'" class="avatar me-2" alt="头像"/>
+          <img :src="state.user.avatar||'/resources/images/default-avatar.jpg'" class="avatar me-2" alt="头像"/>
           <span class="me-2">{{ state.user.username }}</span>
         </template>
       </div>
@@ -461,29 +456,6 @@
               </div>
             </div>
           </div>
-        </div>
-      </div>
-      
-      <!-- 活动管理分页控件 -->
-      <div class="pagination-container mt-4" v-if="activityManagementPagination.totalPages > 1">
-        <nav aria-label="活动管理分页">
-          <ul class="pagination justify-content-center">
-            <li class="page-item" :class="{ disabled: activityManagementPagination.page <= 1 }">
-              <a class="page-link" href="javascript:void(0)" @click="loadActivitiesForManagement(activityManagementPagination.page - 1, activityManagementPagination.pageSize)">上一页</a>
-            </li>
-            
-            <li class="page-item" v-for="n in getPageNumbers('activityManagement')" :key="n" :class="{ active: n === activityManagementPagination.page }">
-              <a class="page-link" href="javascript:void(0)" @click="loadActivitiesForManagement(n, activityManagementPagination.pageSize)">{{ n }}</a>
-            </li>
-            
-            <li class="page-item" :class="{ disabled: activityManagementPagination.page >= activityManagementPagination.totalPages }">
-              <a class="page-link" href="javascript:void(0)" @click="loadActivitiesForManagement(activityManagementPagination.page + 1, activityManagementPagination.pageSize)">下一页</a>
-            </li>
-          </ul>
-        </nav>
-        
-        <div class="text-center text-muted small">
-          共 {{ activityManagementPagination.total }} 条记录，第 {{ activityManagementPagination.page }} / {{ activityManagementPagination.totalPages }} 页
         </div>
       </div>
     </div>
@@ -770,7 +742,7 @@
         </div>
         <div style="margin-left:auto;display:flex;flex-direction:column;align-items:flex-end;gap:6px">
           <label for="avatarFile" class="ant-btn ant-btn-primary" style="cursor:pointer">上传头像</label>
-          <small class="text-muted">支持 JPG/PNG，最大 2MB</small>
+          <small class="text-muted">支持 JPG/PNG，最大 10MB</small>
           <input id="avatarFile" type="file" accept="image/*" style="position:absolute;left:-9999px;" aria-label="上传头像文件" @change="uploadAvatar($event)">
         </div>
       </div>

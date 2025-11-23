@@ -908,7 +908,8 @@ if(window.Vue){
         deleteUser, // 删除用户
         editUser, // 编辑用户
         updateUser // 更新用户
-      };
+        ,filters, searching, applyFilters, resetFilters
+       };
     }
   });
   window.vueApp = app.mount('#app');

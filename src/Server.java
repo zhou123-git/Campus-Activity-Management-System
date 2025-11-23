@@ -107,6 +107,7 @@ public class Server {
             }
         }
         return map;
+
     }
     static void resp(HttpExchange t, String resp) throws IOException {
         allowCORS(t);
@@ -617,46 +618,18 @@ public class Server {
     static void handleAllActivities(HttpExchange t) throws IOException {
         if (t.getRequestMethod().equals("OPTIONS")) { allowCORS(t); t.sendResponseHeaders(200, -1); return; }
         
-        // 获取查询参数
+        // 获取当前用户信息并检查权限
         String q = t.getRequestURI().getQuery();
         String reviewerId = "";
-        int page = 1;
-        int pageSize = 10;
+        if(q!=null && q.startsWith("reviewerId=")) reviewerId = q.substring(11);
         
-        if (q != null) {
-            String[] params = q.split("&");
-            for (String param : params) {
-                if (param.startsWith("reviewerId=")) {
-                    reviewerId = param.substring(11);
-                } else if (param.startsWith("page=")) {
-                    try {
-                        page = Integer.parseInt(param.substring(5));
-                    } catch (NumberFormatException e) {
-                        page = 1;
-                    }
-                } else if (param.startsWith("pageSize=")) {
-                    try {
-                        pageSize = Integer.parseInt(param.substring(9));
-                    } catch (NumberFormatException e) {
-                        pageSize = 10;
-                    }
-                } else if (param.startsWith("adminId=")) {
-                    reviewerId = param.substring(8);
-                }
-            }
-        }
-        
-        // 获取当前用户信息并检查权限
         User reviewer = userService.getUserInfo(reviewerId);
         if (reviewer == null || !"admin".equals(reviewer.getRole())) {
             resp(t, "{\"status\":1,\"msg\":\"权限不足\"}");
             return;
         }
         
-        // 分页查询所有活动
-        List<Activity> acts = activityService.queryActivitiesForAdmin(page, pageSize);
-        int totalActivities = activityService.getAllActivityCount();
-        
+        List<Activity> acts = activityService.queryActivitiesForAdmin();
         StringBuilder sb = new StringBuilder();
         sb.append("[");
         for (int i=0;i<acts.size();i++){
@@ -670,12 +643,7 @@ public class Server {
             if(i<acts.size()-1) sb.append(",\n");
         }
         sb.append("]");
-        
-        // 返回分页信息
-        int totalPages = (int) Math.ceil((double) totalActivities / pageSize);
-        String response = String.format("{\"activities\":%s,\"page\":%d,\"pageSize\":%d,\"total\":%d,\"totalPages\":%d}", 
-            sb.toString(), page, pageSize, totalActivities, totalPages);
-        resp(t, response);
+        resp(t, sb.toString());
     }
 //    static void handleStaticResource(HttpExchange t) throws IOException {
 //        allowCORS(t);
