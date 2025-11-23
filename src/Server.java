@@ -645,25 +645,7 @@ public class Server {
         sb.append("]");
         resp(t, sb.toString());
     }
-//    static void handleStaticResource(HttpExchange t) throws IOException {
-//        allowCORS(t);
-//        String uri = t.getRequestURI().getPath();
-//        if (uri.equals("/")) uri = "/index.html";
-//        java.io.File file = new java.io.File(System.getProperty("user.dir") + "/frontend" + uri);
-//        if(uri.equals("/main.js")) t.getResponseHeaders().add("Content-Type","application/javascript");
-//        else t.getResponseHeaders().add("Content-Type","text/html; charset=utf-8");
-//        if (!file.exists()) {
-//            String resp = "404 Not Found";
-//            t.sendResponseHeaders(404, resp.length());
-//            t.getResponseBody().write(resp.getBytes());
-//            t.getResponseBody().close();
-//            return;
-//        }
-//        byte[] data = java.nio.file.Files.readAllBytes(file.toPath());
-//        t.sendResponseHeaders(200, data.length);
-//        t.getResponseBody().write(data);
-//        t.getResponseBody().close();
-//    }
+
 
     static void handleStaticResource(HttpExchange t) throws IOException {
     allowCORS(t);

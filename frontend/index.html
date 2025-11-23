@@ -9,7 +9,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         body{background:#f4f8fa;}
-        .centered{max-width:1100px;margin:2.5rem auto;}
+        .centered{max-width:1280px;margin:2.5rem auto;}
         .shadow{box-shadow:0 2px 12px rgba(34,34,34,.08)!important;}
 
         .hero-banner{background:linear-gradient(120deg,#2A5298,#1e3c72);color:white;padding:2.2rem;border-radius:12px;margin-bottom:1.5rem;box-shadow:0 8px 30px rgba(33,47,61,.08)}
@@ -21,7 +21,7 @@
         .auth-card.auth-minimal{position:relative;padding-top:72px}
         /* 左移 40px（从 -20 -> -60），上移 40px（从 6 -> -34） */
         .auth-card.auth-minimal .back-button{position:absolute;left:-320px;top:-60px;z-index:5}
-        @media (max-width:576px){ .auth-card.auth-minimal .back-button{left:8px;top:6px} }
+        @media (max-width:576px){ .auth-card.auth-minimal .back-button{left:8px;top=6px} }
         #notifyBar{position:fixed;top:10px;left:0;right:0;z-index:999;text-align:center;display:none;}
         /* Modern notification styles */
         .notification-container {
@@ -222,9 +222,59 @@
           margin-bottom: 0.5rem;
           font-weight: 500;
         }
+
+        /* Compact left-side tabs */
+        .left-nav {padding: 12px 8px;}
+        .left-tabs {display:flex;flex-direction:column;gap:6px;margin-bottom:8px;align-items:flex-start}
+        .left-tab{width:100%;padding:8px 10px;font-weight:600;color:#374151;background:transparent;border-radius:6px;cursor:pointer;border:1px solid transparent;text-align:left}
+        .left-tab:hover{background:#f3f7ff}
+        .left-tab.active{background:#e6f0ff;color:#0b63d6;border-color:#cfe3ff}
+        .side-menu a{display:block;padding:6px 6px;color:#374151;border-radius:4px;text-decoration:none}
+        .side-menu a.active{background:#e6f0ff;color:#0b63d6}
+        /* Sidebar as an absolute (out-of-flow) vertical bar on the left of the centered content */
+        #mainPanel{position:relative;min-height:calc(100vh - 88px);}
+        /* New layout: put left nav in the normal document flow (left column) and show it alongside main content.
+           Use flex layout on the #app container so the left column sits to the left and main-content grows to fill remaining space.
+           Sidebar will no longer be fixed to viewport; it will scroll with the page. The visual style is simplified: only a blue border, transparent background, no heavy shadow. */
+        #app{display:flex;align-items:stretch;gap:24px}
+        .left-column{
+          width:240px;
+          position:relative; /* in-flow */
+          background:transparent; /* keep transparent */
+          padding:8px 4px; /* reduce internal padding */
+          border-radius:6px;
+          box-shadow:none; /* remove heavy shadow */
+          border:none; /* removed outer blue border as requested */
+          align-self:stretch; /* ensure it stretches to match main content height */
+          height:100%; /* fill parent's cross size when parent is flex */
+        }
+        /* when Vue toggles #leftNavRow to visible it should behave as a flex item and stretch; keep inline display:none until app toggles it */
+        #leftNavRow{display:flex}
+        /* keep left-tabs vertically stacked and allow natural page scroll */
+        .left-column .left-tabs{display:flex;flex-direction:column;gap:6px}
+        /* main content should expand */
+        .main-content{flex:1}
+        /* Remove sidebar-visible left margin shift: content aligns by flex now */
+        #mainPanel.sidebar-visible .main-content{margin-left:0}
+          /* Responsive fallback: on narrower screens the sidebar becomes relative and sits above content */
+         @media (max-width:1200px){
+          .left-column{position:relative;left:0;top:0;bottom:auto;height:auto;margin-bottom:12px;width:100%}
+           #mainPanel.sidebar-visible .main-content{margin-left:0}
+         }
+         @media (max-width:768px){ .left-column{position:relative;width:100%;top:0;margin-bottom:8px} .main-content{margin-left:0} .left-tabs{flex-direction:row;flex-wrap:wrap} .left-tab{width:auto} }
+       /* hide Vue-compiled parts before mount to prevent FOUC */
+       [v-cloak] { display: none !important; }
+       /* submenu styles (kept inside head) */
+       .left-tab{position:relative}
+      /* Submenu appears directly under its parent tab and is indented slightly to the right (~1 character). Use a small top gap so it sits tightly under the tab. */
+      .sub-menu{margin-top:4px;padding-left:8px;transform:translateX(12px)} /* right-shift ~1 character */
+       .sub-menu a{display:block;padding:6px 8px;color:#1f3d6b;border-radius:6px;text-decoration:none;font-size:14px}
+       .sub-menu a:hover{background:#dfefff}
+       .sub-menu a.active{background:#cfe3ff;color:#0b63d6;font-weight:600}
+       .sub-menu a::before{content:'•';display:inline-block;width:16px;color:#0b63d6;margin-right:6px}
     </style>
-</head>
-<body class="bg-gray-50">
+  </head>
+  <body class="bg-gray-50">
 
 <nav class="navbar navbar-expand-lg shadow">
    <div class="container-fluid">
@@ -232,14 +282,7 @@
       <img src="/resources/images/whut.png" alt="WHUT" class="nav-logo" />
       <span class="brand-text">校园活动报名系统</span>
     </a>
-     <div class="d-flex align-items-center">
-      <!-- 用户头像和用户名移到导航栏左侧 -->
-      <template v-if="state.user">
-        <img :src="state.user.avatar||'/resources/images/default-avatar.jpg'" class="avatar me-2" alt="头像"/>
-        <span class="me-3 text-white">{{ state.user.username }}</span>
-      </template>
-    </div>
-  </div>
+   </div>
 </nav>
 <!-- Modern notification container -->
 <div class="notification-container" id="notificationContainer"></div>
@@ -250,242 +293,275 @@
 <!-- 用户主界面 -->
 <div id="mainPanel" class="shadow centered p-1">
   <div id="app">
-    <div class="d-flex justify-content-between align-items-center mb-3">
-      <div>
-        <!-- User avatar and username on the left -->
-        <template v-if="state.user">
-          <img :src="state.user.avatar||'/resources/images/default-avatar.jpg'" class="avatar me-2" alt="头像"/>
-          <span class="me-2">{{ state.user.username }}</span>
-        </template>
-      </div>
-      <div>
-        <!-- Navigation buttons on the right -->
-        <template v-if="state.user">
-          <button class="ant-btn ant-btn-primary me-2 tw-transition" @click="setView('activities')">活动报名</button>
-          <button class="ant-btn ant-btn-primary me-2 tw-transition" @click="openPublish()">发布活动</button>
-          <button class="ant-btn ant-btn-primary me-2 tw-transition" @click="state.view='myact'">我的活动</button>
-          <button v-if="state.user.role === 'admin'" class="ant-btn ant-btn-primary me-2 tw-transition" @click="setView('activityManagement')">活动管理</button>
-          <button v-if="state.user.role === 'admin'" class="ant-btn ant-btn-primary me-2 tw-transition" @click="setView('userManagement')">用户管理</button>
-          <button class="ant-btn ant-btn-primary me-2 tw-transition" @click="state.view='myreg'">我的报名</button>
-          <button class="ant-btn ant-btn-primary me-2 tw-transition" @click="state.view='user'">我的信息</button>
-          <button class="ant-btn ant-btn-danger tw-transition" @click="logout">退出</button>
-        </template>
-      </div>
-    </div>
+    <!-- 新的主布局：左侧悬浮导航条（不占用主行） + 主体内容区（.main-content） -->
+    <div id="leftNavRow" style="display:none">
+      <div class="left-column">
+        <!-- left-column (条状导航) -->
+        <div class="ant-card p-3 left-nav">
+          <!-- 一级导航（中文标签式）和内嵌二级菜单：二级菜单放在对应的一级项下方并右移一个字符长度以示层级 -->
+          <div class="left-tabs" role="tablist">
+            <div :class="['left-tab', topNav==='活动中心' ? 'active' : '']" @click="selectTopNav('活动中心')">
+              活动中心
+              <div class="sub-menu" v-if="topNav==='活动中心'">
+                <a href="javascript:void(0)" :class="{active: sideMenu==='活动列表'}" @click.stop="selectSideMenu('活动列表')">活动列表</a>
+                <a href="javascript:void(0)" :class="{active: sideMenu==='我的报名'}" @click.stop="selectSideMenu('我的报名')">我的报名</a>
+                <a href="javascript:void(0)" :class="{active: sideMenu==='我的活动'}" @click.stop="selectSideMenu('我的活动')">我的活动</a>
+              </div>
+            </div>
 
-    <!-- 首页 Hero 欢迎横幅：在 welcome 或 activities 视图显示 -->
-    <div class="hero-banner" v-if="(state.view==='welcome' )">
-      <div class="d-flex justify-content-between align-items-center flex-wrap">
-        <div>
-          <div class="hero-title">欢迎来到 校园活动报名系统</div>
-          <div class="hero-sub">发现并参与最新的校园活动 —— 简单、快捷、安全。</div>
-          <div class="hero-ctas mt-3 d-flex gap-2">
-            <button v-if="state.user" class="ant-btn ant-btn-primary ant-btn-lg" @click="state.view='publish'">发布活动</button>
-            <template v-else>
-              <button class="ant-btn ant-btn-default ant-btn-lg" @click="state.view='register'">注册账号</button>
-              <button class="ant-btn ant-btn-primary ant-btn-lg" @click="state.view='login'">登录</button>
-            </template>
+            <div v-if="state.user && state.user.role==='admin'" :class="['left-tab', topNav==='活动管理' ? 'active' : '']" @click="selectTopNav('活动管理')">
+              活动管理
+              <div class="sub-menu" v-if="topNav==='活动管理'">
+                <a href="javascript:void(0)" :class="{active: sideMenu==='发布活动'}" @click.stop="selectSideMenu('发布活动')">发布活动</a>
+                <a href="javascript:void(0)" :class="{active: sideMenu==='活动管理列表'}" @click.stop="selectSideMenu('活动管理列表')">活动管理列表</a>
+              </div>
+            </div>
+
+            <div v-if="state.user && state.user.role==='admin'" :class="['left-tab', topNav==='用户管理' ? 'active' : '']" @click="selectTopNav('用户管理')">
+              用户管理
+              <div class="sub-menu" v-if="topNav==='用户管理'">
+                <a href="javascript:void(0)" :class="{active: sideMenu==='用户列表'}" @click.stop="selectSideMenu('用户列表')">用户列表</a>
+              </div>
+            </div>
+
+            <div :class="['left-tab', topNav==='个人中心' ? 'active' : '']" @click="selectTopNav('个人中心')">
+              个人中心
+              <div class="sub-menu" v-if="topNav==='个人中心'">
+                <a href="javascript:void(0)" :class="{active: sideMenu==='我的信息'}" @click.stop="selectSideMenu('我的信息')">我的信息</a>
+                <a href="javascript:void(0)" :class="{active: sideMenu==='修改密码'}" @click.stop="selectSideMenu('修改密码')">修改密码</a>
+              </div>
+            </div>
           </div>
         </div>
       </div>
     </div>
 
-    <!-- 活动列表卡片形式 -->
-    <div v-if="(state.view==='activities' || !state.view) && state.user">
-      <div class="card">
-        <div class="card-header">
-          <h5 class="mb-0">活动列表</h5>
+    <!-- 主体内容区：当侧边栏存在时应用左侧偏移，使侧边栏不占用行数 -->
+    <div class="main-content">
+      <!-- Main header: shows avatar and user info horizontally aligned with top of main content -->
+      <div class="d-flex justify-content-end align-items-center mb-3" v-if="state.user">
+        <div class="d-flex align-items-center" style="gap:12px;">
+          <div class="text-end me-2">
+            <div style="font-weight:700">{{ state.user.username }}</div>
+            <div class="small text-muted">{{ state.user.role === 'admin' ? '管理员' : '普通用户' }}</div>
+          </div>
+          <img :src="state.user.avatar||'/resources/images/default-avatar.jpg'" class="avatar" alt="头像"/>
         </div>
-        <div class="card-body">
-          <!-- 新增：搜索/筛选与列表并排布局 -->
-          <div class="row">
-            <!-- 筛选面板（左侧） -->
-            <div class="col-12 col-md-4 col-lg-3 mb-3">
-              <div class="ant-card p-3">
-                <h6 class="mb-3">筛选活动</h6>
-                <div class="mb-2">
-                  <label class="form-label">开始时间</label>
-                  <input type="datetime-local" class="form-control" v-model="filters.startTime" />
-                </div>
-                <div class="mb-2">
-                  <label class="form-label">结束时间</label>
-                  <input type="datetime-local" class="form-control" v-model="filters.endTime" />
-                </div>
-                <div class="mb-2">
-                  <label class="form-label">地点</label>
-                  <input type="text" class="form-control" placeholder="例如：教学楼、礼堂" v-model="filters.location" />
-                </div>
-                <div class="mb-2">
-                  <label class="form-label">发布者</label>
-                  <input type="text" class="form-control" placeholder="用户名或ID" v-model="filters.publisher" />
-                </div>
-                <div class="form-check mb-3">
-                  <input class="form-check-input" type="checkbox" id="hasAvailable" v-model="filters.hasAvailable">
-                  <label class="form-check-label" for="hasAvailable">仅显示有空余名额的活动</label>
-                </div>
-                <div class="d-flex gap-2">
-                  <button class="ant-btn ant-btn-primary flex-grow-1" @click="applyFilters">搜索</button>
-                  <button class="ant-btn ant-btn-default flex-grow-1" @click="resetFilters">重置</button>
-                </div>
-              </div>
-            </div>
+      </div>
 
-            <!-- 列表区域（右侧） -->
-            <div class="col-12 col-md-8 col-lg-9">
-              <!-- 网格布局显示活动 -->
-              <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                <div class="activity-card ant-card-hoverable rounded-xl overflow-hidden" v-for="a in activities" :key="a.activityId">
-                  <div class="p-5 h-full flex flex-col bg-white">
-                    <div class="d-flex justify-content-between align-items-start mb-2">
-                      <h5 class="text-indigo-600 font-bold text-lg m-0">{{ a.activityName }}</h5>
-                      <span :class="getActivityStatusClass(a.status)" class="badge">{{ getActivityStatusText(a.status) }}</span>
-                    </div>
-                    <div class="flex-grow">
-                      <p class="text-gray-500 text-sm mb-2">
-                        <i class="far fa-calendar-alt mr-2"></i>
-                        时间：{{ (a.startTime||'').replace('T',' ') }} ~ {{ (a.endTime||'').replace('T',' ') }}
-                      </p>
-                      <p class="text-gray-500 text-sm mb-2">
-                        <i class="fas fa-map-marker-alt mr-2"></i>
-                        地点：{{ a.location }}
-                      </p>
-                      <p class="text-gray-500 text-sm mb-2">
-                        <i class="fas fa-user mr-2"></i>
-                        发布者：{{ a.publisherName || a.publisherId }}
-                      </p>
-                      <p class="text-gray-500 text-sm mb-2 d-flex align-items-center justify-content-between">
-                        <span><i class="fas fa-users mr-2"></i> 人数：{{ a.count||0 }}/{{ a.maxNum||0 }}</span>
-                        <small class="text-muted">ID: {{ a.activityId }}</small>
-                      </p>
-                    </div>
-                    <div class="flex justify-between mt-4 space-x-2">
-                      <button
-                        class="flex-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-medium py-2 px-3 rounded-lg transition duration-200 ease-in-out transform hover:-translate-y-0.5"
-                        @click="showActivityDetail(a)"
-                      >
-                        查看详情
-                      </button>
-                      <button
-                        class="flex-1 bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white font-medium py-2 px-3 rounded-lg transition duration-200 ease-in-out transform hover:-translate-y-0.5"
-                        @click="apply(a.activityId, a.maxNum, a.count)"
-                        :disabled="a.status !== 'approved'">
-                        报名
-                      </button>
-                    </div>
+      <!-- 首页 Hero 欢迎横幅：在 welcome 或 activities 视图显示 -->
+      <div class="hero-banner" v-if="(state.view==='welcome' )">
+        <div class="d-flex justify-content-between align-items-center flex-wrap">
+          <div>
+            <div class="hero-title">欢迎来到 校园活动报名系统</div>
+            <div class="hero-sub">发现并参与最新的校园活动 —— 简单、快捷、安全。</div>
+            <div class="hero-ctas mt-3 d-flex gap-2">
+              <button v-if="state.user" class="ant-btn ant-btn-primary ant-btn-lg" @click="state.view='publish'">发布活动</button>
+              <template v-else>
+                <button class="ant-btn ant-btn-default ant-btn-lg" @click="state.view='register'">注册账号</button>
+                <button class="ant-btn ant-btn-primary ant-btn-lg" @click="state.view='login'">登录</button>
+              </template>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 活动列表卡片形式 -->
+      <div v-if="(state.view==='activities' || !state.view) && state.user">
+        <div class="card">
+          <div class="card-header">
+            <h5 class="mb-0">活动列表</h5>
+          </div>
+          <div class="card-body">
+            <!-- 新增：搜索/筛选与列表并排布局 -->
+            <div class="row">
+              <!-- 筛选面板（左侧） -->
+              <div class="col-12 col-md-4 col-lg-3 mb-3">
+                <div class="ant-card p-3">
+                  <h6 class="mb-3">筛选活动</h6>
+                  <div class="mb-2">
+                    <label class="form-label">开始时间</label>
+                    <input type="datetime-local" class="form-control" v-model="filters.startTime" />
+                  </div>
+                  <div class="mb-2">
+                    <label class="form-label">结束时间</label>
+                    <input type="datetime-local" class="form-control" v-model="filters.endTime" />
+                  </div>
+                  <div class="mb-2">
+                    <label class="form-label">地点</label>
+                    <input type="text" class="form-control" placeholder="例如：教学楼、礼堂" v-model="filters.location" />
+                  </div>
+                  <div class="mb-2">
+                    <label class="form-label">发布者</label>
+                    <input type="text" class="form-control" placeholder="用户名或ID" v-model="filters.publisher" />
+                  </div>
+                  <div class="form-check mb-3">
+                    <input class="form-check-input" type="checkbox" id="hasAvailable" v-model="filters.hasAvailable">
+                    <label class="form-check-label" for="hasAvailable">仅显示有空余名额的活动</label>
+                  </div>
+                  <div class="d-flex gap-2">
+                    <button class="ant-btn ant-btn-primary flex-grow-1" @click="applyFilters">搜索</button>
+                    <button class="ant-btn ant-btn-default flex-grow-1" @click="resetFilters">重置</button>
                   </div>
                 </div>
               </div>
 
-              <!-- 无数据提示 -->
-              <div v-if="activities.length === 0" class="text-center text-muted py-4">
-                暂无活动
-              </div>
+              <!-- 列表区域（右侧） -->
+              <div class="col-12 col-md-8 col-lg-9">
+                <!-- 网格布局显示活动 -->
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  <div class="activity-card ant-card-hoverable rounded-xl overflow-hidden" v-for="a in activities" :key="a.activityId">
+                    <div class="p-5 h-full flex flex-col bg-white">
+                      <div class="d-flex justify-content-between align-items-start mb-2">
+                        <h5 class="text-indigo-600 font-bold text-lg m-0">{{ a.activityName }}</h5>
+                        <span :class="getActivityStatusClass(a.status)" class="badge">{{ getActivityStatusText(a.status) }}</span>
+                      </div>
+                      <div class="flex-grow">
+                        <p class="text-gray-500 text-sm mb-2">
+                          <i class="far fa-calendar-alt mr-2"></i>
+                          时间：{{ (a.startTime||'').replace('T',' ') }} ~ {{ (a.endTime||'').replace('T',' ') }}
+                        </p>
+                        <p class="text-gray-500 text-sm mb-2">
+                          <i class="fas fa-map-marker-alt mr-2"></i>
+                          地点：{{ a.location }}
+                        </p>
+                        <p class="text-gray-500 text-sm mb-2">
+                          <i class="fas fa-user mr-2"></i>
+                          发布者：{{ a.publisherName || a.publisherId }}
+                        </p>
+                        <p class="text-gray-500 text-sm mb-2 d-flex align-items-center justify-content-between">
+                          <span><i class="fas fa-users mr-2"></i> 人数：{{ a.count||0 }}/{{ a.maxNum||0 }}</span>
+                          <small class="text-muted">ID: {{ a.activityId }}</small>
+                        </p>
+                      </div>
+                      <div class="flex justify-between mt-4 space-x-2">
+                        <button
+                          class="flex-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-medium py-2 px-3 rounded-lg transition duration-200 ease-in-out transform hover:-translate-y-0.5"
+                          @click="showActivityDetail(a)"
+                        >
+                          查看详情
+                        </button>
+                        <button
+                          class="flex-1 bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white font-medium py-2 px-3 rounded-lg transition duration-200 ease-in-out transform hover:-translate-y-0.5"
+                          @click="apply(a.activityId, a.maxNum, a.count)"
+                          :disabled="a.status !== 'approved'">
+                          报名
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
 
-              <!-- 活动列表分页控件 -->
-              <div class="pagination-container mt-4" v-if="!searching && activityPagination.totalPages > 1">
-                <nav aria-label="活动列表分页">
-                  <ul class="pagination justify-content-center">
-                    <li class="page-item" :class="{ disabled: activityPagination.page <= 1 }">
-                      <a class="page-link" href="javascript:void(0)" @click="loadActivitiesWithPagination(activityPagination.page - 1, activityPagination.pageSize)">上一页</a>
-                    </li>
+                <!-- 无数据提示 -->
+                <div v-if="activities.length === 0" class="text-center text-muted py-4">
+                  暂无活动
+                </div>
 
-                    <li class="page-item" v-for="n in getPageNumbers()" :key="n" :class="{ active: n === activityPagination.page }">
-                      <a class="page-link" href="javascript:void(0)" @click="loadActivitiesWithPagination(n, activityPagination.pageSize)">{{ n }}</a>
-                    </li>
+                <!-- 活动列表分页控件 -->
+                <div class="pagination-container mt-4" v-if="!searching && activityPagination.totalPages > 1">
+                  <nav aria-label="活动列表分页">
+                    <ul class="pagination justify-content-center">
+                      <li class="page-item" :class="{ disabled: activityPagination.page <= 1 }">
+                        <a class="page-link" href="javascript:void(0)" @click="loadActivitiesWithPagination(activityPagination.page - 1, activityPagination.pageSize)">上一页</a>
+                      </li>
 
-                    <li class="page-item" :class="{ disabled: activityPagination.page >= activityPagination.totalPages }">
-                      <a class="page-link" href="javascript:void(0)" @click="loadActivitiesWithPagination(activityPagination.page + 1, activityPagination.pageSize)">下一页</a>
-                    </li>
-                  </ul>
-                </nav>
+                      <li class="page-item" v-for="n in getPageNumbers()" :key="n" :class="{ active: n === activityPagination.page }">
+                        <a class="page-link" href="javascript:void(0)" @click="loadActivitiesWithPagination(n, activityPagination.pageSize)">{{ n }}</a>
+                      </li>
 
-                <div class="text-center text-muted small">
-                  共 {{ activityPagination.total }} 条记录，第 {{ activityPagination.page }} / {{ activityPagination.totalPages }} 页
+                      <li class="page-item" :class="{ disabled: activityPagination.page >= activityPagination.totalPages }">
+                        <a class="page-link" href="javascript:void(0)" @click="loadActivitiesWithPagination(activityPagination.page + 1, activityPagination.pageSize)">下一页</a>
+                      </li>
+                    </ul>
+                  </nav>
+
+                  <div class="text-center text-muted small">
+                    共 {{ activityPagination.total }} 条记录，第 {{ activityPagination.page }} / {{ activityPagination.totalPages }} 页
+                  </div>
                 </div>
               </div>
             </div>
           </div>
         </div>
       </div>
-    </div>
 
-    <!-- 活动管理列表 -->
-    <div v-if="state.view==='activityManagement' && state.user && state.user.role === 'admin'">
-      <h5 class="mb-3 text-orange-500 font-bold text-lg">活动管理</h5>
-      <div v-if="pendingActivities.length===0" class="text-muted p-4 text-center bg-white rounded">暂无活动</div>
-      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        <div class="activity-card ant-card-hoverable rounded-xl overflow-hidden" v-for="a in pendingActivities" :key="a.activityId">
-          <div class="p-5 h-full flex flex-col bg-white">
-            <h5 class="text-indigo-600 font-bold text-lg mb-3">{{ a.activityName }}</h5>
-            <div class="flex-grow">
-              <p class="text-gray-500 text-sm mb-2">
-                <i class="far fa-calendar-alt mr-2"></i>
-                时间：{{ (a.startTime||'').replace('T',' ') }} ~ {{ (a.endTime||'').replace('T',' ') }}
-              </p>
-              <p class="text-gray-500 text-sm mb-2">
-                <i class="fas fa-map-marker-alt mr-2"></i>
-                地点：{{ a.location }}
-              </p>
-              <p class="text-gray-500 text-sm mb-2">
-                <i class="fas fa-users mr-2"></i>
-                人数：{{ a.count||0 }}/{{ a.maxNum||0 }}
-              </p>
-              <p class="text-gray-500 text-sm mb-2">
-                <i class="fas fa-user mr-2"></i>
-                发布者：{{ a.publisherName || a.publisherId }}
-              </p>
-              <p class="text-gray-500 text-sm mb-3">
-                <i class="fas fa-info-circle mr-2"></i>
-                状态：
-                <span v-if="a.status === 'pending'" class="bg-amber-100 text-amber-800 text-xs font-semibold px-2.5 py-0.5 rounded-full">待审核</span>
-                <span v-else-if="a.status === 'approved'" class="bg-emerald-100 text-emerald-800 text-xs font-semibold px-2.5 py-0.5 rounded-full">已通过</span>
-                <span v-else class="bg-rose-100 text-rose-800 text-xs font-semibold px-2.5 py-0.5 rounded-full">已拒绝</span>
-              </p>
-            </div>
-            <div class="flex justify-between mt-4 space-x-2">
-              <button 
-                class="flex-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-medium py-2 px-3 rounded-lg transition duration-200 ease-in-out transform hover:-translate-y-0.5"
-                @click="showActivityDetail(a)"
-              >
-                查看详情
-              </button>
-              <div class="flex space-x-2">
-                <button v-if="a.status === 'pending'" class="flex-1 bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white font-medium py-2 px-3 rounded-lg transition duration-200 ease-in-out transform hover:-translate-y-0.5" @click="reviewActivity(a.activityId, 'approved')">通过</button>
-                <button v-if="a.status === 'pending'" class="flex-1 bg-gradient-to-r from-red-500 to-rose-500 hover:from-red-600 hover:to-rose-600 text-white font-medium py-2 px-3 rounded-lg transition duration-200 ease-in-out transform hover:-translate-y-0.5" @click="reviewActivity(a.activityId, 'rejected')">拒绝</button>
-                <button class="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium py-2 px-3 rounded-lg transition duration-200 ease-in-out transform hover:-translate-y-0.5" @click="deleteActivity(a.activityId)">删除</button>
+      <!-- 活动管理列表 -->
+      <div v-if="state.view==='activityManagement' && state.user && state.user.role === 'admin'">
+        <h5 class="mb-3 text-orange-500 font-bold text-lg">活动管理</h5>
+        <div v-if="pendingActivities.length===0" class="text-muted p-4 text-center bg-white rounded">暂无活动</div>
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div class="activity-card ant-card-hoverable rounded-xl overflow-hidden" v-for="a in pendingActivities" :key="a.activityId">
+            <div class="p-5 h-full flex flex-col bg-white">
+              <h5 class="text-indigo-600 font-bold text-lg mb-3">{{ a.activityName }}</h5>
+              <div class="flex-grow">
+                <p class="text-gray-500 text-sm mb-2">
+                  <i class="far fa-calendar-alt mr-2"></i>
+                  时间：{{ (a.startTime||'').replace('T',' ') }} ~ {{ (a.endTime||'').replace('T',' ') }}
+                </p>
+                <p class="text-gray-500 text-sm mb-2">
+                  <i class="fas fa-map-marker-alt mr-2"></i>
+                  地点：{{ a.location }}
+                </p>
+                <p class="text-gray-500 text-sm mb-2">
+                  <i class="fas fa-users mr-2"></i>
+                  人数：{{ a.count||0 }}/{{ a.maxNum||0 }}
+                </p>
+                <p class="text-gray-500 text-sm mb-2">
+                  <i class="fas fa-user mr-2"></i>
+                  发布者：{{ a.publisherName || a.publisherId }}
+                </p>
+                <p class="text-gray-500 text-sm mb-3">
+                  <i class="fas fa-info-circle mr-2"></i>
+                  状态：
+                  <span v-if="a.status === 'pending'" class="bg-amber-100 text-amber-800 text-xs font-semibold px-2.5 py-0.5 rounded-full">待审核</span>
+                  <span v-else-if="a.status === 'approved'" class="bg-emerald-100 text-emerald-800 text-xs font-semibold px-2.5 py-0.5 rounded-full">已通过</span>
+                  <span v-else class="bg-rose-100 text-rose-800 text-xs font-semibold px-2.5 py-0.5 rounded-full">已拒绝</span>
+                </p>
+              </div>
+              <div class="flex justify-between mt-4 space-x-2">
+                <button
+                  class="flex-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-medium py-2 px-3 rounded-lg transition duration-200 ease-in-out transform hover:-translate-y-0.5"
+                  @click="showActivityDetail(a)"
+                >
+                  查看详情
+                </button>
+                <div class="flex space-x-2">
+                  <button v-if="a.status === 'pending'" class="flex-1 bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white font-medium py-2 px-3 rounded-lg transition duration-200 ease-in-out transform hover:-translate-y-0.5" @click="reviewActivity(a.activityId, 'approved')">通过</button>
+                  <button v-if="a.status === 'pending'" class="flex-1 bg-gradient-to-r from-red-500 to-rose-500 hover:from-red-600 hover:to-rose-600 text-white font-medium py-2 px-3 rounded-lg transition duration-200 ease-in-out transform hover:-translate-y-0.5" @click="reviewActivity(a.activityId, 'rejected')">拒绝</button>
+                  <button class="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium py-2 px-3 rounded-lg transition duration-200 ease-in-out transform hover:-translate-y-0.5" @click="deleteActivity(a.activityId)">删除</button>
+                </div>
               </div>
             </div>
           </div>
         </div>
       </div>
-    </div>
 
-    <!-- 活动详情页面 -->
-    <div class="activity-detail" v-if="state.view==='activityDetail' && selectedActivity">
-      <div class="d-flex justify-content-between align-items-center mb-3">
-        <h2 class="activity-title">{{ selectedActivity.activityName }}</h2>
-        <button class="ant-btn ant-btn-default" @click="backToPreviousView()">&laquo; 返回</button>
-      </div>
+      <!-- 活动详情页面 -->
+      <div class="activity-detail" v-if="state.view==='activityDetail' && selectedActivity">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+          <h2 class="activity-title">{{ selectedActivity.activityName }}</h2>
+          <button class="ant-btn ant-btn-default" @click="backToPreviousView()">&laquo; 返回</button>
+        </div>
 
-      <div class="activity-info">
-        <strong>活动ID:</strong> {{ selectedActivity.activityId }}
-      </div>
+        <div class="activity-info">
+          <strong>活动ID:</strong> {{ selectedActivity.activityId }}
+        </div>
 
-      <div class="activity-info">
-        <strong>活动时间:</strong> {{ (selectedActivity.startTime||'').replace('T',' ') }} ~ {{ (selectedActivity.endTime||'').replace('T',' ') }}
-      </div>
+        <div class="activity-info">
+          <strong>活动时间:</strong> {{ (selectedActivity.startTime||'').replace('T',' ') }} ~ {{ (selectedActivity.endTime||'').replace('T',' ') }}
+        </div>
 
-      <div class="activity-info">
-        <strong>活动地点:</strong> {{ selectedActivity.location }}
-      </div>
+        <div class="activity-info">
+          <strong>活动地点:</strong> {{ selectedActivity.location }}
+        </div>
 
-      <div class="activity-info">
-        <strong>报名人数:</strong> {{ selectedActivity.count||0 }}/{{ selectedActivity.maxNum||0 }}
-      </div>
+        <div class="activity-info">
+          <strong>报名人数:</strong> {{ selectedActivity.count||0 }}/{{ selectedActivity.maxNum||0 }}
+        </div>
 
-      <div class="activity-info">
-        <strong>发布者:</strong> {{ selectedActivity.publisherName || selectedActivity.publisherId }}
-      </div>
+        <div class="activity-info">
+          <strong>发布者:</strong> {{ selectedActivity.publisherName || selectedActivity.publisherId }}
+        </div>
 
 <!--      <div class="activity-info">-->
 <!--        <strong>状态:</strong> -->
@@ -494,402 +570,404 @@
 <!--        <span v-else class="bg-rose-100 text-rose-800 text-xs font-semibold px-2.5 py-0.5 rounded-full">已拒绝</span>-->
 <!--      </div>-->
 
-      <div class="activity-description">
-        <h5>活动简介</h5>
-        <p>{{ selectedActivity.description }}</p>
+        <div class="activity-description">
+          <h5>活动简介</h5>
+          <p>{{ selectedActivity.description }}</p>
+        </div>
+
+        <div class="flex gap-2 mt-3">
+          <button class="ant-btn ant-btn-success" @click="apply(selectedActivity.activityId, selectedActivity.maxNum, selectedActivity.count)" :disabled="selectedActivity.status !== 'approved'">报名参加</button>
+          <div v-if="state.user && state.user.role === 'admin' && selectedActivity.status === 'pending'">
+            <button class="ant-btn ant-btn-success mr-1" @click="reviewActivity(selectedActivity.activityId, 'approved')">通过</button>
+            <button class="ant-btn ant-btn-danger" @click="reviewActivity(selectedActivity.activityId, 'rejected')">拒绝</button>
+          </div>
+        </div>
       </div>
 
-      <div class="flex gap-2 mt-3">
-        <button class="ant-btn ant-btn-success" @click="apply(selectedActivity.activityId, selectedActivity.maxNum, selectedActivity.count)" :disabled="selectedActivity.status !== 'approved'">报名参加</button>
-        <div v-if="state.user && state.user.role === 'admin' && selectedActivity.status === 'pending'">
-          <button class="ant-btn ant-btn-success mr-1" @click="reviewActivity(selectedActivity.activityId, 'approved')">通过</button>
-          <button class="ant-btn ant-btn-danger" @click="reviewActivity(selectedActivity.activityId, 'rejected')">拒绝</button>
-        </div>
-      </div>
-    </div>
+      <!-- 用户管理界面 -->
+      <div class="card shadow centered p-4 mt-4" v-if="state.view==='userManagement' && state.user && state.user.role === 'admin'">
+        <h5 class="mb-3 text-blue-500 font-bold text-lg">用户管理</h5>
 
-    <!-- 用户管理界面 -->
-    <div class="card shadow centered p-4 mt-4" v-if="state.view==='userManagement' && state.user && state.user.role === 'admin'">
-      <h5 class="mb-3 text-blue-500 font-bold text-lg">用户管理</h5>
-      
-      <!-- 搜索框 -->
-      <div class="card mb-4">
-        <div class="card-body">
-          <div class="row g-2">
-            <div class="col-md-4">
-              <input type="text" class="form-control" placeholder="输入用户名进行搜索" v-model="searchKeyword" @keyup.enter="searchUsers">
-            </div>
-            <div class="col-md-2">
-              <button class="ant-btn ant-btn-primary" @click="searchUsers">搜索</button>
-            </div>
-            <div class="col-md-2">
-              <button class="ant-btn ant-btn-default" @click="resetSearch">重置</button>
-            </div>
-          </div>
-        </div>
-      </div>
-      
-      <!-- 用户列表 -->
-      <div class="card">
-        <div class="card-header">
-          <h6 class="mb-0">用户列表</h6>
-        </div>
-        <div class="card-body">
-          <div class="overflow-x-auto">
-            <table class="table table-bordered text-center align-middle">
-              <thead>
-                <tr>
-                  <th>用户ID</th>
-                  <th>用户名</th>
-                  <th>邮箱</th>
-                  <th>角色</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr v-for="user in userList" :key="user.userId" 
-                    @click="selectUser(user)" 
-                    :class="{ 'table-primary': selectedUser && selectedUser.userId === user.userId }"
-                    style="cursor: pointer;">
-                  <td>{{ user.userId }}</td>
-                  <td>{{ user.username }}</td>
-                  <td>{{ user.email }}</td>
-                  <td>
-                    <span v-if="user.role === 'admin'" class="bg-blue-100 text-blue-800 text-xs font-semibold px-2.5 py-0.5 rounded-full">管理员</span>
-                    <span v-else class="bg-gray-100 text-gray-800 text-xs font-semibold px-2.5 py-0.5 rounded-full">普通用户</span>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-            
-            <!-- 无数据提示 -->
-            <div v-if="userList.length === 0" class="text-center text-muted py-4">
-              暂无用户数据
-            </div>
-          </div>
-          
-          <!-- 操作按钮 -->
-          <div class="mt-3 d-flex justify-content-between">
-            <div>
-              <button class="ant-btn ant-btn-danger" 
-                      :disabled="!selectedUser" 
-                      @click="confirmDeleteUser">
-                <i class="fas fa-trash-alt me-1"></i>删除用户
-              </button>
-            </div>
-            <div>
-              <span v-if="selectedUser" class="text-muted small">
-                已选中: {{ selectedUser.username }} (ID: {{ selectedUser.userId }})
-              </span>
-            </div>
-          </div>
-          
-          <!-- 角色修改区域 -->
-          <div class="mt-3 p-3 bg-light rounded" v-if="selectedUser">
-            <div class="row g-2 align-items-center">
-              <div class="col-md-3">
-                <label class="form-label small mb-0">当前角色:</label>
-                <input type="text" class="form-control form-control-sm" 
-                       :value="selectedUser.role === 'admin' ? '管理员' : '普通用户'" 
-                       readonly>
+        <!-- 搜索框 -->
+        <div class="card mb-4">
+          <div class="card-body">
+            <div class="row g-2">
+              <div class="col-md-4">
+                <input type="text" class="form-control" placeholder="输入用户名进行搜索" v-model="searchKeyword" @keyup.enter="searchUsers">
               </div>
-              <div class="col-md-3">
-                <label class="form-label small mb-0">新角色:</label>
-                <select class="form-control form-control-sm" 
-                        v-model="newRole" 
-                        :disabled="selectedUser.userId === state.user.userId">
+              <div class="col-md-2">
+                <button class="ant-btn ant-btn-primary" @click="searchUsers">搜索</button>
+              </div>
+              <div class="col-md-2">
+                <button class="ant-btn ant-btn-default" @click="resetSearch">重置</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 用户列表 -->
+        <div class="card">
+          <div class="card-header">
+            <h6 class="mb-0">用户列表</h6>
+          </div>
+          <div class="card-body">
+            <div class="overflow-x-auto">
+              <table class="table table-bordered text-center align-middle">
+                <thead>
+                  <tr>
+                    <th>用户ID</th>
+                    <th>用户名</th>
+                    <th>邮箱</th>
+                    <th>角色</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="user in userList" :key="user.userId"
+                      @click="selectUser(user)"
+                      :class="{ 'table-primary': selectedUser && selectedUser.userId === user.userId }"
+                      style="cursor: pointer;">
+                    <td>{{ user.userId }}</td>
+                    <td>{{ user.username }}</td>
+                    <td>{{ user.email }}</td>
+                    <td>
+                      <span v-if="user.role === 'admin'" class="bg-blue-100 text-blue-800 text-xs font-semibold px-2.5 py-0.5 rounded-full">管理员</span>
+                      <span v-else class="bg-gray-100 text-gray-800 text-xs font-semibold px-2.5 py-0.5 rounded-full">普通用户</span>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+
+              <!-- 无数据提示 -->
+              <div v-if="userList.length === 0" class="text-center text-muted py-4">
+                暂无用户数据
+              </div>
+            </div>
+
+            <!-- 操作按钮 -->
+            <div class="mt-3 d-flex justify-content-between">
+              <div>
+                <button class="ant-btn ant-btn-danger"
+                        :disabled="!selectedUser"
+                        @click="confirmDeleteUser">
+                  <i class="fas fa-trash-alt me-1"></i>删除用户
+                </button>
+              </div>
+              <div>
+                <span v-if="selectedUser" class="text-muted small">
+                  已选中: {{ selectedUser.username }} (ID: {{ selectedUser.userId }})
+                </span>
+              </div>
+            </div>
+
+            <!-- 角色修改区域 -->
+            <div class="mt-3 p-3 bg-light rounded" v-if="selectedUser">
+              <div class="row g-2 align-items-center">
+                <div class="col-md-3">
+                  <label class="form-label small mb-0">当前角色:</label>
+                  <input type="text" class="form-control form-control-sm"
+                         :value="selectedUser.role === 'admin' ? '管理员' : '普通用户'"
+                         readonly>
+                </div>
+                <div class="col-md-3">
+                  <label class="form-label small mb-0">新角色:</label>
+                  <select class="form-control form-control-sm"
+                          v-model="newRole"
+                          :disabled="selectedUser.userId === state.user.userId">
+                    <option value="user">普通用户</option>
+                    <option value="admin">管理员</option>
+                  </select>
+                </div>
+                <div class="col-md-3">
+                  <button class="ant-btn ant-btn-primary ant-btn-sm mt-4"
+                          :disabled="!selectedUser || newRole === selectedUser.role || selectedUser.userId === state.user.userId"
+                          @click="confirmUpdateRole">
+                    确认修改
+                  </button>
+                </div>
+              </div>
+              <div class="mt-2 small text-warning" v-if="selectedUser && selectedUser.userId === state.user.userId">
+                <i class="fas fa-exclamation-circle me-1"></i>不能修改自己的角色
+              </div>
+            </div>
+
+            <!-- 分页控件 -->
+            <div class="pagination-container mt-4" v-if="pagination.totalPages > 1">
+              <nav aria-label="用户列表分页">
+                <ul class="pagination justify-content-center">
+                  <li class="page-item" :class="{ disabled: pagination.page <= 1 }">
+                    <a class="page-link" href="javascript:void(0)" @click="loadUserList(pagination.page - 1, pagination.pageSize)">上一页</a>
+                  </li>
+
+                  <li class="page-item" v-for="n in getPageNumbers()" :key="n" :class="{ active: n === pagination.page }">
+                    <a class="page-link" href="javascript:void(0)" @click="loadUserList(n, pagination.pageSize)">{{ n }}</a>
+                  </li>
+
+                  <li class="page-item" :class="{ disabled: pagination.page >= pagination.totalPages }">
+                    <a class="page-link" href="javascript:void(0)" @click="loadUserList(pagination.page + 1, pagination.pageSize)">下一页</a>
+                  </li>
+                </ul>
+              </nav>
+
+              <div class="text-center text-muted small">
+                共 {{ pagination.total }} 条记录，第 {{ pagination.page }} / {{ pagination.totalPages }} 页
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 编辑用户模态框 -->
+      <div class="modal fade" id="editUserModal" tabindex="-1" v-if="state.view==='userManagement' && state.user && state.user.role === 'admin'">
+        <div class="modal-dialog">
+          <div class="modal-content">
+            <div class="modal-header">
+              <h5 class="modal-title">编辑用户</h5>
+              <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+              <div class="mb-3">
+                <label class="form-label">用户ID</label>
+                <input class="form-control" v-model="editingUser.userId" readonly>
+              </div>
+              <div class="mb-3">
+                <label class="form-label">用户名</label>
+                <input class="form-control" v-model="editingUser.username">
+              </div>
+              <div class="mb-3">
+                <label class="form-label">邮箱</label>
+                <input class="form-control" v-model="editingUser.email">
+              </div>
+              <div class="mb-3">
+                <label class="form-label">角色</label>
+                <select class="form-control" v-model="editingUser.role">
                   <option value="user">普通用户</option>
                   <option value="admin">管理员</option>
                 </select>
               </div>
-              <div class="col-md-3">
-                <button class="ant-btn ant-btn-primary ant-btn-sm mt-4" 
-                        :disabled="!selectedUser || newRole === selectedUser.role || selectedUser.userId === state.user.userId"
-                        @click="confirmUpdateRole">
-                  确认修改
-                </button>
-              </div>
             </div>
-            <div class="mt-2 small text-warning" v-if="selectedUser && selectedUser.userId === state.user.userId">
-              <i class="fas fa-exclamation-circle me-1"></i>不能修改自己的角色
-            </div>
-          </div>
-          
-          <!-- 分页控件 -->
-          <div class="pagination-container mt-4" v-if="pagination.totalPages > 1">
-            <nav aria-label="用户列表分页">
-              <ul class="pagination justify-content-center">
-                <li class="page-item" :class="{ disabled: pagination.page <= 1 }">
-                  <a class="page-link" href="javascript:void(0)" @click="loadUserList(pagination.page - 1, pagination.pageSize)">上一页</a>
-                </li>
-                
-                <li class="page-item" v-for="n in getPageNumbers()" :key="n" :class="{ active: n === pagination.page }">
-                  <a class="page-link" href="javascript:void(0)" @click="loadUserList(n, pagination.pageSize)">{{ n }}</a>
-                </li>
-                
-                <li class="page-item" :class="{ disabled: pagination.page >= pagination.totalPages }">
-                  <a class="page-link" href="javascript:void(0)" @click="loadUserList(pagination.page + 1, pagination.pageSize)">下一页</a>
-                </li>
-              </ul>
-            </nav>
-            
-            <div class="text-center text-muted small">
-              共 {{ pagination.total }} 条记录，第 {{ pagination.page }} / {{ pagination.totalPages }} 页
+            <div class="modal-footer">
+              <button type="button" class="ant-btn ant-btn-default" data-bs-dismiss="modal">取消</button>
+              <button type="button" class="ant-btn ant-btn-primary" @click="updateUser">保存</button>
             </div>
           </div>
         </div>
       </div>
-    </div>
-    
-    <!-- 编辑用户模态框 -->
-    <div class="modal fade" id="editUserModal" tabindex="-1" v-if="state.view==='userManagement' && state.user && state.user.role === 'admin'">
-      <div class="modal-dialog">
-        <div class="modal-content">
-          <div class="modal-header">
-            <h5 class="modal-title">编辑用户</h5>
-            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-          </div>
-          <div class="modal-body">
-            <div class="mb-3">
-              <label class="form-label">用户ID</label>
-              <input class="form-control" v-model="editingUser.userId" readonly>
-            </div>
-            <div class="mb-3">
-              <label class="form-label">用户名</label>
-              <input class="form-control" v-model="editingUser.username">
-            </div>
-            <div class="mb-3">
-              <label class="form-label">邮箱</label>
-              <input class="form-control" v-model="editingUser.email">
-            </div>
-            <div class="mb-3">
-              <label class="form-label">角色</label>
-              <select class="form-control" v-model="editingUser.role">
-                <option value="user">普通用户</option>
-                <option value="admin">管理员</option>
-              </select>
-            </div>
-          </div>
-          <div class="modal-footer">
-            <button type="button" class="ant-btn ant-btn-default" data-bs-dismiss="modal">取消</button>
-            <button type="button" class="ant-btn ant-btn-primary" @click="updateUser">保存</button>
+
+      <!-- 首页 Hero 欢迎横幅 -->
+      <div class="hero-banner" v-if="state.view==='login' || state.view==='register'">
+        <div class="d-flex justify-content-center align-items-center flex-wrap text-center">
+          <div class="w-100">
+            <div class="hero-title">欢迎来到 校园活动报名系统</div>
+            <div class="hero-sub">发现并参与最新的校园活动 —— 简单、快捷、安全。</div>
           </div>
         </div>
       </div>
-    </div>
-    
-    <!-- 首页 Hero 欢迎横幅 -->
-    <div class="hero-banner" v-if="state.view==='login' || state.view==='register'">
-      <div class="d-flex justify-content-center align-items-center flex-wrap text-center">
-        <div class="w-100">
-          <div class="hero-title">欢迎来到 校园活动报名系统</div>
-          <div class="hero-sub">发现并参与最新的校园活动 —— 简单、快捷、安全。</div>
+
+      <!-- 登录 -->
+      <div class="auth-card auth-minimal p-1" v-if="state.view==='login'">
+        <div class="text-center mb-4">
+          <div class="auth-title fs-4 text-indigo-600 font-bold">用户登录</div>
+          <div class="auth-subtitle small text-gray-500">欢迎回来，请输入您的账户信息</div>
         </div>
-      </div>
-    </div>
-
-    <!-- 登录 -->
-    <div class="auth-card auth-minimal p-1" v-if="state.view==='login'">
-      <div class="text-center mb-4">
-        <div class="auth-title fs-4 text-indigo-600 font-bold">用户登录</div>
-        <div class="auth-subtitle small text-gray-500">欢迎回来，请输入您的账户信息</div>
-      </div>
-      <div class="mb-3">
-        <label class="form-label text-gray-700 font-medium">用户名</label>
-        <input class="form-control auth-input mb-2" v-model.trim="loginForm.username" placeholder="请输入用户名">
-      </div>
-      <div class="mb-4">
-        <label class="form-label text-gray-700 font-medium">密码</label>
-        <input class="form-control auth-input mb-2" v-model.trim="loginForm.password" type="password" placeholder="请输入密码" @keyup.enter="doLogin">
-      </div>
-      <button class="ant-btn ant-btn-primary w-full auth-btn py-2 rounded-lg font-medium" @click="doLogin">登录</button>
-      <div class="text-center mt-3 small">
-        还没有账户？ <a href="javascript:void(0)" class="link-muted" @click="state.view='register'">立即注册</a>
-      </div>
-    </div>
-
-    <!-- 注册 -->
-    <div class="auth-card centered p-4 mt-4" v-if="state.view==='register'">
-      <div class="text-center mb-4">
-        <div class="auth-title fs-4 text-green-600 font-bold">创建账户</div>
-        <div class="auth-subtitle small text-gray-500">填写以下信息完成注册</div>
-      </div>
-      <div class="mb-3">
-        <label class="form-label text-gray-700 font-medium">用户名</label>
-        <input class="form-control auth-input mb-2" v-model.trim="regForm.username" placeholder="请输入用户名">
-      </div>
-      <div class="mb-3">
-        <label class="form-label text-gray-700 font-medium">密码</label>
-        <input class="form-control auth-input mb-2" v-model.trim="regForm.password" type="password" placeholder="请输入密码">
-      </div>
-      <div class="mb-4">
-        <label class="form-label text-gray-700 font-medium">邮箱</label>
-        <input class="form-control auth-input mb-2" v-model.trim="regForm.email" type="email" placeholder="请输入邮箱地址">
-      </div>
-      <button class="ant-btn ant-btn-success w-full auth-btn py-2 rounded-lg font-medium" @click="doRegister">注册</button>
-      <div class="text-center mt-3 small">
-        已有账号？ <a href="javascript:void(0)" class="link-muted" @click="state.view='login'">去登录</a>
-      </div>
-    </div>
-
-    <!-- 我的信息 -->
-    <div class="card shadow centered p-4 mt-4 profile-card" v-if="state.view==='user' && state.user">
-      <h5 class="mb-3">我的信息</h5>
-      <div class="d-flex align-items-center gap-3 mb-3">
-        <img :src="profile.avatar" class="avatar" alt="头像">
-        <div>
-          <div style="font-weight:700;font-size:1.05rem;color:#212529">{{ profile.username || state.user.username }}</div>
-          <div class="small text-muted">角色: {{ state.user.role === 'admin' ? '管理员' : '普通用户' }}</div>
+        <div class="mb-3">
+          <label class="form-label text-gray-700 font-medium">用户名</label>
+          <input class="form-control auth-input mb-2" v-model.trim="loginForm.username" placeholder="请输入用户名">
         </div>
-        <div style="margin-left:auto;display:flex;flex-direction:column;align-items:flex-end;gap:6px">
-          <label for="avatarFile" class="ant-btn ant-btn-primary" style="cursor:pointer">上传头像</label>
-          <small class="text-muted">支持 JPG/PNG，最大 10MB</small>
-          <input id="avatarFile" type="file" accept="image/*" style="position:absolute;left:-9999px;" aria-label="上传头像文件" @change="uploadAvatar($event)">
+        <div class="mb-4">
+          <label class="form-label text-gray-700 font-medium">密码</label>
+          <input class="form-control auth-input mb-2" v-model.trim="loginForm.password" type="password" placeholder="请输入密码" @keyup.enter="doLogin">
+        </div>
+        <button class="ant-btn ant-btn-primary w-full auth-btn py-2 rounded-lg font-medium" @click="doLogin">登录</button>
+        <div class="text-center mt-3 small">
+          还没有账户？ <a href="javascript:void(0)" class="link-muted" @click="state.view='register'">立即注册</a>
         </div>
       </div>
 
-      <div class="mb-3 profile-field">
-        <label class="form-label">用户ID</label>
-        <input class="form-control profile-input" :value="state.user.userId" readonly>
-      </div>
-
-      <div class="mb-3 profile-field">
-        <label class="form-label">用户名</label>
-        <input class="form-control profile-input" v-model.trim="profile.username" placeholder="用户名">
-      </div>
-
-      <div class="mb-3 profile-field">
-        <label class="form-label">注册邮箱</label>
-        <input class="form-control profile-input" :value="profile.email" readonly>
-      </div>
-
-      <div class="profile-actions">
-        <button class="ant-btn ant-btn-primary" @click="updateInfo">保存信息</button>
-        <button class="ant-btn ant-btn-default" @click="state.view='pwd'">修改密码</button>
-      </div>
-    </div>
-
-    <!-- 修改密码 -->
-    <!-- 发布/编辑活动 -->
-    <div class="card shadow centered p-4 mt-4" v-if="state.view==='publish' && state.user">
-      <h5 class="mb-3" v-text="pubForm.activityId ? '编辑活动' : '发布新活动'"></h5>
-      <label class="form-label small text-muted">活动名称</label>
-      <input class="form-control mb-2" v-model.trim="pubForm.name" placeholder="活动名称">
-      <label class="form-label small text-muted">活动简介</label>
-      <input class="form-control mb-2" v-model.trim="pubForm.desc" placeholder="活动简介">
-      <label class="form-label small text-muted">活动地点</label>
-      <input class="form-control mb-2" v-model.trim="pubForm.location" placeholder="活动地点">
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
-        <div>
-          <label class="form-label small text-muted">开始时间</label>
-          <input type="datetime-local" class="form-control" v-model="pubForm.startTime" />
+      <!-- 注册 -->
+      <div class="auth-card centered p-4 mt-4" v-if="state.view==='register'">
+        <div class="text-center mb-4">
+          <div class="auth-title fs-4 text-green-600 font-bold">创建账户</div>
+          <div class="auth-subtitle small text-gray-500">填写以下信息完成注册</div>
         </div>
-        <div>
-          <label class="form-label small text-muted">结束时间</label>
-          <input type="datetime-local" class="form-control" v-model="pubForm.endTime" />
+        <div class="mb-3">
+          <label class="form-label text-gray-700 font-medium">用户名</label>
+          <input class="form-control auth-input mb-2" v-model.trim="regForm.username" placeholder="请输入用户名">
+        </div>
+        <div class="mb-3">
+          <label class="form-label text-gray-700 font-medium">密码</label>
+          <input class="form-control auth-input mb-2" v-model.trim="regForm.password" type="password" placeholder="请输入密码">
+        </div>
+        <div class="mb-4">
+          <label class="form-label text-gray-700 font-medium">邮箱</label>
+          <input class="form-control auth-input mb-2" v-model.trim="regForm.email" type="email" placeholder="请输入邮箱地址">
+        </div>
+        <button class="ant-btn ant-btn-success w-full auth-btn py-2 rounded-lg font-medium" @click="doRegister">注册</button>
+        <div class="text-center mt-3 small">
+          已有账号？ <a href="javascript:void(0)" class="link-muted" @click="state.view='login'">去登录</a>
         </div>
       </div>
-      <label class="form-label small text-muted mt-2">最大人数</label>
-      <input type="number" min="1" class="form-control mb-3" v-model.number="pubForm.maxNum" placeholder="如：50" />
-      <div class="flex gap-2">
-        <button class="ant-btn ant-btn-primary flex-grow-1" @click="submitPublish">提交</button>
-        <button class="ant-btn ant-btn-default" @click="cancelPublish">返回</button>
-      </div>
-      <div class="mt-2 small text-danger" v-if="pubFormMsg">{{ pubFormMsg }}</div>
-    </div>
 
-    <!-- 我的活动 -->
-    <div class="card shadow centered p-4 mt-4" v-if="state.view==='myact' && state.user">
-      <h5 class="mb-3 text-green-600">我发布的活动</h5>
-      <div v-if="myActs.length===0" class="text-muted">你还没有发布活动</div>
-      <div class="overflow-x-auto">
-        <table class="table table-striped text-center align-middle">
-          <thead><tr><th>ID</th><th>名称</th><th>简介</th><th>状态</th><th>操作</th></tr></thead>
-          <tbody>
-            <tr v-for="a in myActs" :key="a.activityId">
-              <td><code>{{ a.activityId.slice(0,8) }}</code></td>
-              <td>{{ a.activityName }}</td>
-              <td>{{ a.description }}</td>
-              <td>
-                <span v-if="a.status === 'pending'" class="bg-amber-100 text-amber-800 text-xs font-semibold px-2.5 py-0.5 rounded-full">待审核</span>
-                <span v-else-if="a.status === 'approved'" class="bg-emerald-100 text-emerald-800 text-xs font-semibold px-2.5 py-0.5 rounded-full">已通过</span>
-                <span v-else class="bg-rose-100 text-rose-800 text-xs font-semibold px-2.5 py-0.5 rounded-full">已拒绝</span>
-              </td>
-              <td>
-                  <button class="ant-btn ant-btn-primary ant-btn-sm mr-1" @click="showActivityDetail(activities.find(item => item.activityId === a.activityId))">查看</button>
-                <button class="ant-btn ant-btn-default ant-btn-sm mr-1" @click="editAct(a)">编辑</button>
-                <button class="ant-btn ant-btn-warning ant-btn-sm mr-1" @click="openManage(a.activityId)">管理</button>
-                <button class="ant-btn ant-btn-danger ant-btn-sm" @click="deleteAct(a.activityId)">删除</button>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-    </div>
+      <!-- 我的信息 -->
+      <div class="card shadow centered p-4 mt-4 profile-card" v-if="state.view==='user' && state.user">
+        <h5 class="mb-3">我的信息</h5>
+        <div class="d-flex align-items-center gap-3 mb-3">
+          <img :src="profile.avatar" class="avatar" alt="头像">
+          <div>
+            <div style="font-weight:700;font-size:1.05rem;color:#212529">{{ profile.username || state.user.username }}</div>
+            <div class="small text-muted">角色: {{ state.user.role === 'admin' ? '管理员' : '普通用户' }}</div>
+          </div>
+          <div style="margin-left:auto;display:flex;flex-direction:column;align-items:flex-end;gap:6px">
+            <label for="avatarFile" class="ant-btn ant-btn-primary" style="cursor:pointer">上传头像</label>
+            <small class="text-muted">支持 JPG/PNG，最大 10MB</small>
+            <input id="avatarFile" type="file" accept="image/*" style="position:absolute;left:-9999px;" aria-label="上传头像文件" @change="uploadAvatar($event)">
+          </div>
+        </div>
 
-    <!-- 我的报名 -->
-    <div class="card shadow centered p-4 mt-4" v-if="state.view==='myreg' && state.user">
-      <h5 class="mb-3 text-blue-500">我的报名</h5>
-      <div v-if="myRegs.length===0" class="text-muted">暂无报名记录</div>
-      <div class="overflow-x-auto">
-        <table class="table table-bordered text-center align-middle">
-          <thead><tr><th>报名ID</th><th>活动ID</th><th>活动名称</th><th>状态</th></tr></thead>
-          <tbody>
-            <tr v-for="r in myRegs" :key="r.registrationId">
-              <td><code>{{ r.username || r.userId }}</code></td>
-              <td><a href="javascript:void(0)" @click="viewActivityFromReg(r.activityId)">{{ r.activityId.slice(0,8) }}</a></td>
-              <td>{{ r.activityName }}</td>
-              <td>
-                <span v-if="r.status === '已申请'" class="bg-amber-100 text-amber-800 text-xs font-semibold px-2.5 py-0.5 rounded-full">已申请</span>
-                <span v-else-if="r.status === '已通过'" class="bg-emerald-100 text-emerald-800 text-xs font-semibold px-2.5 py-0.5 rounded-full">已通过</span>
-                <span v-else class="bg-rose-100 text-rose-800 text-xs font-semibold px-2.5 py-0.5 rounded-full">已拒绝</span>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-    </div>
+        <div class="mb-3 profile-field">
+          <label class="form-label">用户ID</label>
+          <input class="form-control profile-input" :value="state.user.userId" readonly>
+        </div>
 
-    <!-- 活动报名管理 -->
-    <div class="card shadow centered p-4 mt-4" v-if="state.view==='manage' && state.user">
-      <h5 class="mb-3 text-orange-500">活动报名管理</h5>
-      <div class="input-group mb-3">
-        <span class="input-group-text">活动ID</span>
-        <input class="form-control" :value="manageState.activityId" readonly />
+        <div class="mb-3 profile-field">
+          <label class="form-label">用户名</label>
+          <input class="form-control profile-input" v-model.trim="profile.username" placeholder="用户名">
+        </div>
+
+        <div class="mb-3 profile-field">
+          <label class="form-label">注册邮箱</label>
+          <input class="form-control profile-input" :value="profile.email" readonly>
+        </div>
+
+        <div class="profile-actions">
+          <button class="ant-btn ant-btn-primary" @click="updateInfo">保存信息</button>
+          <button class="ant-btn ant-btn-default" @click="state.view='pwd'">修改密码</button>
+          <button class="ant-btn ant-btn-danger" @click="logout">退出登录</button>
+        </div>
       </div>
-      <div class="input-group mb-3">
-        <input v-model.trim="manageState.addUserId" class="form-control" placeholder="输入用户ID添加报名">
-        <button class="ant-btn ant-btn-primary" @click="addReg()">添加</button>
+
+      <!-- 修改密码 -->
+      <!-- 发布/编辑活动 -->
+      <div class="card shadow centered p-4 mt-4" v-if="state.view==='publish' && state.user">
+        <h5 class="mb-3" v-text="pubForm.activityId ? '编辑活动' : '发布新活动'"></h5>
+        <label class="form-label small text-muted">活动名称</label>
+        <input class="form-control mb-2" v-model.trim="pubForm.name" placeholder="活动名称">
+        <label class="form-label small text-muted">活动简介</label>
+        <input class="form-control mb-2" v-model.trim="pubForm.desc" placeholder="活动简介">
+        <label class="form-label small text-muted">活动地点</label>
+        <input class="form-control mb-2" v-model.trim="pubForm.location" placeholder="活动地点">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
+          <div>
+            <label class="form-label small text-muted">开始时间</label>
+            <input type="datetime-local" class="form-control" v-model="pubForm.startTime" />
+          </div>
+          <div>
+            <label class="form-label small text-muted">结束时间</label>
+            <input type="datetime-local" class="form-control" v-model="pubForm.endTime" />
+          </div>
+        </div>
+        <label class="form-label small text-muted mt-2">最大人数</label>
+        <input type="number" min="1" class="form-control mb-3" v-model.number="pubForm.maxNum" placeholder="如：50" />
+        <div class="flex gap-2">
+          <button class="ant-btn ant-btn-primary flex-grow-1" @click="submitPublish">提交</button>
+          <button class="ant-btn ant-btn-default" @click="cancelPublish">返回</button>
+        </div>
+        <div class="mt-2 small text-danger" v-if="pubFormMsg">{{ pubFormMsg }}</div>
       </div>
-      <div class="overflow-x-auto">
-        <table class="table align-middle">
-          <thead><tr><th>报名ID</th><th>用户</th><th>状态</th><th>操作</th></tr></thead>
-          <tbody>
-            <tr v-for="r in manageState.regs" :key="r.registrationId">
-              <td><code>{{ r.registrationId.slice(0,8) }}</code></td>
-              <td>{{ r.username || r.userId }}</td>
-              <td>
-                <span v-if="r.status === '已申请'" class="bg-amber-100 text-amber-800 text-xs font-semibold px-2.5 py-0.5 rounded-full">已申请</span>
-                <span v-else-if="r.status === '已通过'" class="bg-emerald-100 text-emerald-800 text-xs font-semibold px-2.5 py-0.5 rounded-full">已通过</span>
-                <span v-else class="bg-rose-100 text-rose-800 text-xs font-semibold px-2.5 py-0.5 rounded-full">已拒绝</span>
-              </td>
-              <td>
-                <template v-if="r.status==='已申请'">
-                  <button class="ant-btn ant-btn-success ant-btn-sm mr-1" @click="reviewReg(r.registrationId,1)">通过</button>
-                  <button class="ant-btn ant-btn-danger ant-btn-sm mr-1" @click="reviewReg(r.registrationId,0)">拒绝</button>
-                </template>
-                <button class="ant-btn ant-btn-danger ant-btn-sm" @click="delReg(r.registrationId)">删除</button>
-              </td>
-            </tr>
-          </tbody>
-        </table>
+
+      <!-- 我的活动 -->
+      <div class="card shadow centered p-4 mt-4" v-if="state.view==='myact' && state.user">
+        <h5 class="mb-3 text-green-600">我发布的活动</h5>
+        <div v-if="myActs.length===0" class="text-muted">你还没有发布活动</div>
+        <div class="overflow-x-auto">
+          <table class="table table-striped text-center align-middle">
+            <thead><tr><th>ID</th><th>名称</th><th>简介</th><th>状态</th><th>操作</th></tr></thead>
+            <tbody>
+              <tr v-for="a in myActs" :key="a.activityId">
+                <td><code>{{ a.activityId.slice(0,8) }}</code></td>
+                <td>{{ a.activityName }}</td>
+                <td>{{ a.description }}</td>
+                <td>
+                  <span v-if="a.status === 'pending'" class="bg-amber-100 text-amber-800 text-xs font-semibold px-2.5 py-0.5 rounded-full">待审核</span>
+                  <span v-else-if="a.status === 'approved'" class="bg-emerald-100 text-emerald-800 text-xs font-semibold px-2.5 py-0.5 rounded-full">已通过</span>
+                  <span v-else class="bg-rose-100 text-rose-800 text-xs font-semibold px-2.5 py-0.5 rounded-full">已拒绝</span>
+                </td>
+                <td>
+                    <button class="ant-btn ant-btn-primary ant-btn-sm mr-1" @click="showActivityDetail(activities.find(item => item.activityId === a.activityId))">查看</button>
+                  <button class="ant-btn ant-btn-default ant-btn-sm mr-1" @click="editAct(a)">编辑</button>
+                  <button class="ant-btn ant-btn-warning ant-btn-sm mr-1" @click="openManage(a.activityId)">管理</button>
+                  <button class="ant-btn ant-btn-danger ant-btn-sm" @click="deleteAct(a.activityId)">删除</button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
       </div>
-      <button class="ant-btn ant-btn-default" @click="state.view='myact'">返回我的活动</button>
-    </div>
-    <div class="card shadow centered p-4 mt-4" v-if="state.view==='pwd' && state.user">
-      <h5 class="mb-3">修改密码</h5>
-      <input type="password" class="form-control mb-2" v-model.trim="pwdForm.oldPwd" placeholder="当前密码">
-      <input type="password" class="form-control mb-2" v-model.trim="pwdForm.newPwd" placeholder="新密码"><button class="ant-btn ant-btn-default" @click="cancelPublish">返回</button>
-      <button class="ant-btn ant-btn-success w-full" @click="changePwd">提交修改</button>
+
+      <!-- 我的报名 -->
+      <div class="card shadow centered p-4 mt-4" v-if="state.view==='myreg' && state.user">
+        <h5 class="mb-3 text-blue-500">我的报名</h5>
+        <div v-if="myRegs.length===0" class="text-muted">暂无报名记录</div>
+        <div class="overflow-x-auto">
+          <table class="table table-bordered text-center align-middle">
+            <thead><tr><th>报名ID</th><th>活动ID</th><th>活动名称</th><th>状态</th></tr></thead>
+            <tbody>
+              <tr v-for="r in myRegs" :key="r.registrationId">
+                <td><code>{{ r.username || r.userId }}</code></td>
+                <td><a href="javascript:void(0)" @click="viewActivityFromReg(r.activityId)">{{ r.activityId.slice(0,8) }}</a></td>
+                <td>{{ r.activityName }}</td>
+                <td>
+                  <span v-if="r.status === '已申请'" class="bg-amber-100 text-amber-800 text-xs font-semibold px-2.5 py-0.5 rounded-full">已申请</span>
+                  <span v-else-if="r.status === '已通过'" class="bg-emerald-100 text-emerald-800 text-xs font-semibold px-2.5 py-0.5 rounded-full">已通过</span>
+                  <span v-else class="bg-rose-100 text-rose-800 text-xs font-semibold px-2.5 py-0.5 rounded-full">已拒绝</span>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- 活动报名管理 -->
+      <div class="card shadow centered p-4 mt-4" v-if="state.view==='manage' && state.user">
+        <h5 class="mb-3 text-orange-500">活动报名管理</h5>
+        <div class="input-group mb-3">
+          <span class="input-group-text">活动ID</span>
+          <input class="form-control" :value="manageState.activityId" readonly />
+        </div>
+        <div class="input-group mb-3">
+          <input v-model.trim="manageState.addUserId" class="form-control" placeholder="输入用户ID添加报名">
+          <button class="ant-btn ant-btn-primary" @click="addReg()">添加</button>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="table align-middle">
+            <thead><tr><th>报名ID</th><th>用户</th><th>状态</th><th>操作</th></tr></thead>
+            <tbody>
+              <tr v-for="r in manageState.regs" :key="r.registrationId">
+                <td><code>{{ r.registrationId.slice(0,8) }}</code></td>
+                <td>{{ r.username || r.userId }}</td>
+                <td>
+                  <span v-if="r.status === '已申请'" class="bg-amber-100 text-amber-800 text-xs font-semibold px-2.5 py-0.5 rounded-full">已申请</span>
+                  <span v-else-if="r.status === '已通过'" class="bg-emerald-100 text-emerald-800 text-xs font-semibold px-2.5 py-0.5 rounded-full">已通过</span>
+                  <span v-else class="bg-rose-100 text-rose-800 text-xs font-semibold px-2.5 py-0.5 rounded-full">已拒绝</span>
+                </td>
+                <td>
+                  <template v-if="r.status==='已申请'">
+                    <button class="ant-btn ant-btn-success ant-btn-sm mr-1" @click="reviewReg(r.registrationId,1)">通过</button>
+                    <button class="ant-btn ant-btn-danger ant-btn-sm mr-1" @click="reviewReg(r.registrationId,0)">拒绝</button>
+                  </template>
+                  <button class="ant-btn ant-btn-danger ant-btn-sm" @click="delReg(r.registrationId)">删除</button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <button class="ant-btn ant-btn-default" @click="state.view='myact'">返回我的活动</button>
+      </div>
+      <div class="card shadow centered p-4 mt-4" v-if="state.view==='pwd' && state.user">
+        <h5 class="mb-3">修改密码</h5>
+        <input type="password" class="form-control mb-2" v-model.trim="pwdForm.oldPwd" placeholder="当前密码">
+        <input type="password" class="form-control mb-2" v-model.trim="pwdForm.newPwd" placeholder="新密码"><button class="ant-btn ant-btn-default" @click="cancelPublish">返回</button>
+        <button class="ant-btn ant-btn-success w-full" @click="changePwd">提交修改</button>
+      </div>
     </div>
   </div>
 </div>

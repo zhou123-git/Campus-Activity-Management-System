@@ -71,13 +71,25 @@ function closeNotification(id) {
 }
 
 // ---- Vue 3 应用（完整） ----
-if(window.Vue){
-  const { createApp, ref, reactive } = Vue;
-  const app = createApp({
-    setup(){
+(function(){
+  try{
+    console.log('app-main: window.Vue=', !!window.Vue);
+    if(!window.Vue){
+      console.error('Vue not found: ensure <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script> is loaded before app-main.js');
+      return;
+    }
+    const { createApp, ref, reactive } = Vue;
+    const app = createApp({
+      setup(){
       const activities = ref([]);
       const pendingActivities = ref([]); // 待审核活动列表
       const state = reactive({ user: null, view: 'login' });
+      // 顶级导航（中文标签）和侧边菜单状态
+      // 顶级：'活动中心' | '活动管理' | '用户管理'
+      const topNav = ref('');
+      // 侧边菜单使用中文项名
+      const sideMenu = ref('活动列表'); // 子菜单默认项
+      const showProfileMenu = ref(false);
       const loginForm = reactive({ username: '', password: '' });
       const regForm = reactive({ username: '', password: '', email: '' });
       const profile = reactive({ username: '', email: '', avatar: '/resources/images/default-avatar.jpg' });
@@ -96,241 +108,300 @@ if(window.Vue){
       const searchKeyword = ref(''); // 搜索关键词
       const newRole = ref('user'); // 新角色
 
-      // 分页相关数据
-      const pagination = reactive({
-        page: 1,
-        pageSize: 10,
-        total: 0,
-        totalPages: 0
-      });
-
-      // 活动列表分页数据
-      const activityPagination = reactive({
-        page: 1,
-        pageSize: 10,
-        total: 0,
-        totalPages: 0
-      });
-
-      // 搜索/筛选状态
-      const filters = reactive({ startTime: '', endTime: '', location: '', publisher: '', hasAvailable: false });
-      const searching = ref(false);
-
-      const load = async ()=>{
-        // 检查是否需要分页
-        if (state.view === 'activities') {
-          // 活动报名页面使用分页
+      // Helper: switch top nav and automatically set left submenu & view
+      const selectTopNav = async (name) => {
+        topNav.value = name;
+        // 映射到中文子菜单与视图
+        if (name === '活动中心') {
+          sideMenu.value = '活动列表';
+          state.view = 'activities';
           await loadActivitiesWithPagination(1, 6);
-        } else {
-          // 其他情况加载所有活动
-          const res = await fetch('/api/activity/list');
-          activities.value = await res.json();
+        } else if (name === '活动管理') {
+          sideMenu.value = '发布活动';
+          state.view = 'activityManagement';
+          await loadAllActivities();
+        } else if (name === '个人中心') {
+          sideMenu.value = '我的信息';
+          // map user's personal center to existing views
+          state.view = 'user';
+          await refreshUserInfo();
+        } else if (name === '用户管理') {
+          sideMenu.value = '用户列表';
+          state.view = 'userManagement';
+          await loadUserList(1, 10);
         }
       };
 
-      // 加载分页活动列表
-      const loadActivitiesWithPagination = async (page = 1, pageSize = 6) => {
-        try {
-          // 如果处于搜索状态，请求更大的 pageSize 以便客户端过滤
-          const reqPageSize = searching.value ? Math.max(pageSize, 100) : pageSize;
-          const res = await fetch(`/api/activity/list?page=${page}&pageSize=${reqPageSize}`);
-          const data = await res.json();
-
-          let rawList = [];
-          if (data.activities) {
-            rawList = data.activities;
-            // 更新分页信息（仅在非搜索时使用后端分页信息）
-            if (!searching.value) {
-              activityPagination.page = data.page;
-              activityPagination.pageSize = data.pageSize;
-              activityPagination.total = data.total;
-              activityPagination.totalPages = data.totalPages;
-            } else {
-              // 搜索时，用后端返回的列表作为候选并重置分页显示
-              activityPagination.page = 1;
-              activityPagination.pageSize = reqPageSize;
-              activityPagination.total = rawList.length;
-              activityPagination.totalPages = 1;
-            }
-          } else {
-            rawList = data;
-            activityPagination.page = 1;
-            activityPagination.pageSize = rawList.length || reqPageSize;
-            activityPagination.total = rawList.length || 0;
-            activityPagination.totalPages = 1;
-          }
-
-          // 如果在搜索状态，进行客户端过滤
-          if (searching.value) {
-            activities.value = applyClientFilters(rawList);
-          } else {
-            activities.value = rawList;
-          }
-        } catch (error) {
-          console.error('加载活动列表失败:', error);
-          activities.value = [];
-        }
+      const selectSideMenu = async (item) => {
+        sideMenu.value = item;
+        // 将中文侧边项映射为已有视图名
+        if (item === '活动列表') { state.view = 'activities'; await loadActivitiesWithPagination(1, 6); }
+        else if (item === '我的报名') { state.view = 'myreg'; await loadMyRegs(); }
+        else if (item === '我的活动') { state.view = 'myact'; await loadMyActs(); }
+        else if (item === '我的信息') { state.view = 'user'; await refreshUserInfo(); }
+        else if (item === '修改密码') { state.view = 'pwd'; }
+        else if (item === '发布活动') { state.view = 'publish'; }
+        else if (item === '活动管理列表') { state.view = 'activityManagement'; await loadAllActivities(); }
+        else if (item === '用户列表') { state.view = 'userManagement'; await loadUserList(1, 10); }
+        else if (item === '权限管理') { state.view = 'userManagement'; await loadUserList(1,10); }
       };
 
-      // 计算分页页码数组
-      const getPageNumbers = () => {
-        const pageNumbers = [];
-        // 根据当前视图选择使用哪个分页数据
-        let page, totalPages;
-        if (state.view === 'activities') {
-          // 活动列表使用活动分页数据
-          page = activityPagination.page;
-          totalPages = activityPagination.totalPages;
-        } else if (state.view === 'userManagement') {
-          // 用户列表使用用户分页数据
-          page = pagination.page;
-          totalPages = pagination.totalPages;
-        } else {
-          return [];
-        }
+      const toggleProfileMenu = () => { showProfileMenu.value = !showProfileMenu.value; };
 
-        let start = Math.max(1, page - 2);
-        let end = Math.min(totalPages, page + 2);
+      // make sure when setView is called elsewhere we keep topNav consistent
+       // 分页相关数据
+       const pagination = reactive({
+         page: 1,
+         pageSize: 10,
+         total: 0,
+         totalPages: 0
+       });
 
-        // 确保显示5个页码（如果可能）
-        if (end - start < 4) {
-          if (start === 1) {
-            end = Math.min(totalPages, start + 4);
-          } else {
-            start = Math.max(1, end - 4);
-          }
-        }
+       // 活动列表分页数据
+       const activityPagination = reactive({
+         page: 1,
+         pageSize: 10,
+         total: 0,
+         totalPages: 0
+       });
 
-        for (let i = start; i <= end; i++) {
-          pageNumbers.push(i);
-        }
+       // 搜索/筛选状态
+       const filters = reactive({ startTime: '', endTime: '', location: '', publisher: '', hasAvailable: false });
+       const searching = ref(false);
 
-        return pageNumbers;
-      };
-      
-      // 加载待审核活动
-      const loadPendingActivities = async () => {
-        if (!state.user || state.user.role !== 'admin') return;
-        const res = await fetch(`/api/activity/pending?reviewerId=${state.user.userId}`);
-        const result = await res.json();
-        if (Array.isArray(result)) {
-          pendingActivities.value = result;
-        } else {
-          pendingActivities.value = [];
-        }
-      };
-      
-      // 加载所有活动（供管理员在活动管理页面使用）
-      const loadAllActivities = async () => {
-        if (!state.user || state.user.role !== 'admin') return;
-        const res = await fetch(`/api/activity/all?reviewerId=${state.user.userId}`);
-        const result = await res.json();
-        if (Array.isArray(result)) {
-          pendingActivities.value = result;
-        } else {
-          pendingActivities.value = [];
-        }
-      };
-      
-      // 加载用户列表（支持分页和搜索）
-      const loadUserList = async (page = 1, pageSize = 10) => {
-        if (!state.user || state.user.role !== 'admin') return;
-        try {
-          console.log('正在加载用户列表，页码:', page, '每页数量:', pageSize, '搜索关键词:', searchKeyword.value);
-          
-          // 构建查询参数
-          let queryParams = `adminId=${state.user.userId}&page=${page}&pageSize=${pageSize}`;
-          if (searchKeyword.value) {
-            queryParams += `&search=${encodeURIComponent(searchKeyword.value)}`;
-          }
-          
-          const res = await fetch(`/api/admin/user/list?${queryParams}`);
-          console.log('用户列表响应状态:', res.status);
-          if (res.ok) {
-            const result = await res.json();
-            console.log('用户列表数据:', result);
-            if (result.status === 0) {
-              // 解析返回的数据
-              const userData = JSON.parse(result.data.replace(/\\\\/g, '\\').replace(/\\"/g, '"'));
-              if (Array.isArray(userData)) {
-                userList.value = userData;
-              } else {
-                userList.value = [];
-              }
-              // 更新分页信息
-              pagination.total = result.total;
-              pagination.page = result.page;
-              pagination.pageSize = result.pageSize;
-              pagination.totalPages = result.totalPages;
-              
-              // 清除选中用户
-              selectedUser.value = null;
-            } else {
-              userList.value = [];
-            }
-          } else {
-            console.error('加载用户列表失败，状态码:', res.status);
-            userList.value = [];
-          }
-        } catch (error) {
-          console.error('加载用户列表失败:', error);
-          userList.value = [];
-        }
-      };
-      
-      const refreshUserInfo = async ()=>{
-        if(!state.user) return;
-        const res = await fetch('/api/user/info',{method:'POST',body:new URLSearchParams({userId:state.user.userId})});
-        const d = await res.json();
-        profile.username = d.username||'';
-        profile.email = d.email||'';
-        // 使用 resources 下的默认头像作为兜底（与后端默认路径一致）
-        profile.avatar = (d.avatar || '/resources/images/default-avatar.jpg');
-      };
-      const doLogin = async ()=>{
-        const p = new URLSearchParams({username:loginForm.username,password:loginForm.password});
-        const r = await fetch('/api/login',{method:'POST',body:p});
-        const d = await r.json();
-        if(d.status===0){
-          state.user=d; window.user=d; state.view='activities';
-          await load(); await refreshUserInfo();
-          await loadMyActs(); await loadMyRegs();
-          notify('登录成功');
-        } else notify(d.msg||'登录失败','danger');
-      };
-      const doRegister = async ()=>{
-        const p = new URLSearchParams({username:regForm.username,password:regForm.password,email:regForm.email});
-        const r = await fetch('/api/register',{method:'POST',body:p});
-        const d = await r.json();
-        if(d.status===0){ notify('注册成功，请登录'); state.view='login'; }
-        else notify(d.msg||'注册失败','danger');
-      };
-      const logout = ()=>{ state.user=null; window.user=null; state.view='welcome'; myActs.value = []; myRegs.value = []; pendingActivities.value = []; notify('已退出'); };
-      const updateInfo = async ()=>{
-        if(!state.user) return;
-        const p = new URLSearchParams({userId:state.user.userId,username:profile.username,email:profile.email,avatar:profile.avatar});
-        const r = await fetch('/api/user/update',{method:'POST',body:p});
-        const d = await r.json();
-        if(d.status===0){ state.user.username=profile.username; notify('资料已保存','success'); await load(); } // 更新资料后刷新活动列表
-        else notify('修改失败，用户名可能已存在','danger');
-      };
-      const uploadAvatar = async (ev)=>{
-        if(!state.user) return; const f = ev.target.files[0]; if(!f) return;
+       const load = async ()=>{
+         // 检查是否需要分页
+         if (state.view === 'activities') {
+           // 活动报名页面使用分页
+           await loadActivitiesWithPagination(1, 6);
+         } else {
+           // 其他情况加载所有活动
+           const res = await fetch('/api/activity/list');
+           activities.value = await res.json();
+         }
+       };
+
+       // 加载分页活动列表
+       const loadActivitiesWithPagination = async (page = 1, pageSize = 6) => {
+         try {
+           // 如果处于搜索状态，请求更大的 pageSize 以便客户端过滤
+           const reqPageSize = searching.value ? Math.max(pageSize, 100) : pageSize;
+           const res = await fetch(`/api/activity/list?page=${page}&pageSize=${reqPageSize}`);
+           const data = await res.json();
+
+           let rawList = [];
+           if (data.activities) {
+             rawList = data.activities;
+             // 更新分页信息（仅在非搜索时使用后端分页信息）
+             if (!searching.value) {
+               activityPagination.page = data.page;
+               activityPagination.pageSize = data.pageSize;
+               activityPagination.total = data.total;
+               activityPagination.totalPages = data.totalPages;
+             } else {
+               // 搜索时，用后端返回的列表作为候选并重置分页显示
+               activityPagination.page = 1;
+               activityPagination.pageSize = reqPageSize;
+               activityPagination.total = rawList.length;
+               activityPagination.totalPages = 1;
+             }
+           } else {
+             rawList = data;
+             activityPagination.page = 1;
+             activityPagination.pageSize = rawList.length || reqPageSize;
+             activityPagination.total = rawList.length || 0;
+             activityPagination.totalPages = 1;
+           }
+
+           // 如果在搜索状态，进行客户端过滤
+           if (searching.value) {
+             activities.value = applyClientFilters(rawList);
+           } else {
+             activities.value = rawList;
+           }
+         } catch (error) {
+           console.error('加载活动列表失败:', error);
+           activities.value = [];
+         }
+       };
+
+       // 计算分页页码数组
+       const getPageNumbers = () => {
+         const pageNumbers = [];
+         // 根据当前视图选择使用哪个分页数据
+         let page, totalPages;
+         if (state.view === 'activities') {
+           // 活动列表使用活动分页数据
+           page = activityPagination.page;
+           totalPages = activityPagination.totalPages;
+         } else if (state.view === 'userManagement') {
+           // 用户列表使用用户分页数据
+           page = pagination.page;
+           totalPages = pagination.totalPages;
+         } else {
+           return [];
+         }
+
+         let start = Math.max(1, page - 2);
+         let end = Math.min(totalPages, page + 2);
+
+         // 确保显示5个页码（如果可能）
+         if (end - start < 4) {
+           if (start === 1) {
+             end = Math.min(totalPages, start + 4);
+           } else {
+             start = Math.max(1, end - 4);
+           }
+         }
+
+         for (let i = start; i <= end; i++) {
+           pageNumbers.push(i);
+         }
+
+         return pageNumbers;
+       };
+
+       // 加载待审核活动
+       const loadPendingActivities = async () => {
+         if (!state.user || state.user.role !== 'admin') return;
+         const res = await fetch(`/api/activity/pending?reviewerId=${state.user.userId}`);
+         const result = await res.json();
+         if (Array.isArray(result)) {
+           pendingActivities.value = result;
+         } else {
+           pendingActivities.value = [];
+         }
+       };
+
+       // 加载所有活动（供管理员在活动管理页面使用）
+       const loadAllActivities = async () => {
+         if (!state.user || state.user.role !== 'admin') return;
+         const res = await fetch(`/api/activity/all?reviewerId=${state.user.userId}`);
+         const result = await res.json();
+         if (Array.isArray(result)) {
+           pendingActivities.value = result;
+         } else {
+           pendingActivities.value = [];
+         }
+       };
+
+       // 加载用户列表（支持分页和搜索）
+       const loadUserList = async (page = 1, pageSize = 10) => {
+         if (!state.user || state.user.role !== 'admin') return;
+         try {
+           console.log('正在加载用户列表，页码:', page, '每页数量:', pageSize, '搜索关键词:', searchKeyword.value);
+
+           // 构建查询参数
+           let queryParams = `adminId=${state.user.userId}&page=${page}&pageSize=${pageSize}`;
+           if (searchKeyword.value) {
+             queryParams += `&search=${encodeURIComponent(searchKeyword.value)}`;
+           }
+
+           const res = await fetch(`/api/admin/user/list?${queryParams}`);
+           console.log('用户列表响应状态:', res.status);
+           if (res.ok) {
+             const result = await res.json();
+             console.log('用户列表数据:', result);
+             if (result.status === 0) {
+               // 解析返回的数据
+               const userData = JSON.parse(result.data.replace(/\\\\/g, '\\').replace(/\\"/g, '"'));
+               if (Array.isArray(userData)) {
+                 userList.value = userData;
+               } else {
+                 userList.value = [];
+               }
+               // 更新分页信息
+               pagination.total = result.total;
+               pagination.page = result.page;
+               pagination.pageSize = result.pageSize;
+               pagination.totalPages = result.totalPages;
+
+               // 清除选中用户
+               selectedUser.value = null;
+             } else {
+               userList.value = [];
+             }
+           } else {
+             console.error('加载用户列表失败，状态码:', res.status);
+             userList.value = [];
+           }
+         } catch (error) {
+           console.error('加载用户列表失败:', error);
+           userList.value = [];
+         }
+       };
+
+       const refreshUserInfo = async ()=>{
+         if(!state.user) return;
+         const res = await fetch('/api/user/info',{method:'POST',body:new URLSearchParams({userId:state.user.userId})});
+         const d = await res.json();
+         profile.username = d.username||'';
+         profile.email = d.email||'';
+         // 使用 resources 下的默认头像作为兜底（与后端默认路径一致）
+         profile.avatar = (d.avatar || '/resources/images/default-avatar.jpg');
+       };
+       const doLogin = async ()=>{
+         const p = new URLSearchParams({username:loginForm.username,password:loginForm.password});
+         const r = await fetch('/api/login',{method:'POST',body:p});
+         const d = await r.json();
+         if(d.status===0){
+           state.user=d; window.user=d;
+           // show left navigation now that user is logged in; default to 活动中心
+           const left = document.getElementById('leftNavRow');
+           if (left) left.style.display = 'block';
+           // add sidebar-visible class to mainPanel to shift content
+           const main = document.getElementById('mainPanel');
+           if (main) main.classList.add('sidebar-visible');
+           // default to 活动中心 as requested
+           topNav.value = '活动中心';
+           await selectTopNav('活动中心');
+           notify('登录成功');
+           await refreshUserInfo();
+           await loadMyActs(); await loadMyRegs();
+         } else notify(d.msg||'登录失败','danger');
+       };
+       const doRegister = async ()=>{
+         const p = new URLSearchParams({username:regForm.username,password:regForm.password,email:regForm.email});
+         const r = await fetch('/api/register',{method:'POST',body:p});
+         const d = await r.json();
+         if(d.status===0){ notify('注册成功，请登录'); state.view='login'; }
+         else notify(d.msg||'注册失败','danger');
+       };
+       const logout = ()=>{
+         state.user=null; window.user=null; state.view='welcome'; myActs.value = []; myRegs.value = []; pendingActivities.value = []; notify('已退出');
+         // hide left navigation on logout and reset nav state
+         const left = document.getElementById('leftNavRow');
+         if (left) left.style.display = 'none';
+         const main = document.getElementById('mainPanel');
+         if (main) main.classList.remove('sidebar-visible');
+         topNav.value = '';
+         sideMenu.value = '';
+       };
+       const updateInfo = async ()=>{
+         if(!state.user) return;
+         const p = new URLSearchParams({userId:state.user.userId,username:profile.username,email:profile.email,avatar:profile.avatar});
+         const r = await fetch('/api/user/update',{method:'POST',body:p});
+         const d = await r.json();
+         if(d.status===0){ state.user.username=profile.username; notify('资料已保存','success'); await load(); } // 更新资料后刷新活动列表
+         else notify('修改失败，用户名可能已存在','danger');
+       };
+       const uploadAvatar = async (ev)=>{
+         if(!state.user) return; const f = ev.target.files[0]; if(!f) return;
         const form = new FormData(); form.append('avatar', f); form.append('userId', state.user.userId);
         const r = await fetch('/api/user/avatarUpload',{method:'POST',body:form}); const d = await r.json();
         if(d.status===0){ profile.avatar=d.url; state.user.avatar=d.url; notify('头像上传成功'); await load(); } // 上传头像后刷新活动列表
         else notify('头像上传失败','danger');
-      };
-      const changePwd = async ()=>{
-        if(!state.user) return;
-        const p = new URLSearchParams({userId:state.user.userId,oldPwd:pwdForm.oldPwd,newPwd:pwdForm.newPwd});
-        const r = await fetch('/api/user/changePwd',{method:'POST',body:p}); const d = await r.json();
-        if(d.status===0){ notify('密码修改成功'); state.view='user'; pwdForm.oldPwd=''; pwdForm.newPwd=''; }
-        else notify('原密码错误','danger');
-      };
-      const apply = async (aid, maxNum, count)=>{
-        if(!state.user){ notify('请先登录','warning'); state.view='login'; return; }
-        
+       };
+       const changePwd = async ()=>{
+         if(!state.user) return;
+         const p = new URLSearchParams({userId:state.user.userId,oldPwd:pwdForm.oldPwd,newPwd:pwdForm.newPwd});
+         const r = await fetch('/api/user/changePwd',{method:'POST',body:p}); const d = await r.json();
+         if(d.status===0){ notify('密码修改成功'); state.view='user'; pwdForm.oldPwd=''; pwdForm.newPwd=''; }
+         else notify('原密码错误','danger');
+       };
+       const apply = async (aid, maxNum, count)=>{
+         if(!state.user){ notify('请先登录','warning'); state.view='login'; return; }
+
         // Check if activity is full
         if (count >= maxNum) {
           notify('活动报名人数已满，无法报名','warning');
@@ -391,8 +462,8 @@ if(window.Vue){
           }
         }
         else notify('报名失败','danger');
-      };
-      const manage = (aid)=>{ openManage(aid); };
+       };
+       const manage = (aid)=>{ openManage(aid); };
 
       // 活动详情功能
       const showActivityDetail = (activity) => {
@@ -682,6 +753,20 @@ if(window.Vue){
       // 在设置视图时加载相应数据
       const setView = async (viewName) => {
         state.view = viewName;
+        // keep navigation in sync
+        if (['activities','myreg','myact','publish','activityDetail','manage'].includes(viewName)) {
+          topNav.value = '活动中心';
+          if (viewName === 'activities') sideMenu.value = '活动列表';
+          if (viewName === 'myreg') sideMenu.value = '我的报名';
+          if (viewName === 'myact') sideMenu.value = '我的活动';
+        } else if (viewName === 'activityManagement' || viewName === 'publish' || viewName === 'manage') {
+          topNav.value = '活动管理';
+          if (viewName === 'activityManagement') sideMenu.value = '活动管理列表';
+          if (viewName === 'publish') sideMenu.value = '发布活动';
+        } else if (viewName === 'userManagement') {
+          topNav.value = '用户管理';
+          sideMenu.value = '用户列表';
+        }
         if (viewName === 'activityManagement') {
           await loadAllActivities();
         } else if (viewName === 'userManagement') {
@@ -690,7 +775,7 @@ if(window.Vue){
           // 重置新角色为默认值
           newRole.value = 'user';
         }
-      };
+       };
 
       // 管理员功能：创建用户
       const createUser = async () => {
@@ -843,74 +928,81 @@ if(window.Vue){
 
       // 首次加载
       load();
-      return { 
-        activities, 
-        pendingActivities,
-        state, 
-        loginForm, 
-        regForm, 
-        profile, 
-        pwdForm, 
-        pubForm, 
-        pubFormMsg, 
-        myActs, 
-        myRegs, 
-        manageState, 
-        selectedActivity,
-        previousView,
-        newUser, // 新增用户表单
-        userList, // 用户列表
-        editingUser, // 编辑中的用户
-        pagination, // 分页数据
-        activityPagination, // 活动列表分页数据
-        selectedUser, // 选中的用户
-        searchKeyword, // 搜索关键词
-        newRole, // 新角色
-        load, 
-        apply, 
-        manage, 
-        showActivityDetail,
-        backToPreviousView,
-        viewActivityFromReg, 
-        doLogin, 
-        doRegister, 
-        logout, 
-        updateInfo, 
-        uploadAvatar, 
-        changePwd, 
-        openPublish, 
-        editAct, 
-        submitPublish, 
-        cancelPublish, 
-        loadMyActs, 
-        deleteAct, 
-        loadMyRegs, 
-        openManage, 
-        reviewReg, 
-        delReg, 
-        addReg,
-        reviewActivity,
-        deleteActivity,
-        getActivityStatusText,
-        getActivityStatusClass,
-        loadPendingActivities,
-        setView,
-        loadUserList, // 加载用户列表
-        loadActivitiesWithPagination, // 加载分页活动列表
-        getPageNumbers, // 获取分页页码
-        selectUser, // 选中用户
-        searchUsers, // 搜索用户
-        resetSearch, // 重置搜索
-        confirmDeleteUser, // 确认删除用户
-        confirmUpdateRole, // 确认更新用户角色
-        updateUserInfo, // 更新用户信息
-        createUser, // 创建用户
-        deleteUser, // 删除用户
-        editUser, // 编辑用户
-        updateUser // 更新用户
-        ,filters, searching, applyFilters, resetFilters
-       };
-    }
-  });
-  window.vueApp = app.mount('#app');
-}
+      return {
+         activities,
+         pendingActivities,
+        topNav, sideMenu, selectTopNav, selectSideMenu, showProfileMenu, toggleProfileMenu,
+         state,
+         loginForm,
+         regForm,
+         profile,
+         pwdForm,
+         pubForm,
+         pubFormMsg,
+         myActs,
+         myRegs,
+         manageState,
+         selectedActivity,
+         previousView,
+         newUser, // 新增用户表单
+         userList, // 用户列表
+         editingUser, // 编辑中的用户
+         pagination, // 分页数据
+         activityPagination, // 活动列表分页数据
+         selectedUser, // 选中的用户
+         searchKeyword, // 搜索关键词
+         newRole, // 新角色
+         load,
+         apply,
+         manage,
+         showActivityDetail,
+         backToPreviousView,
+         viewActivityFromReg,
+         doLogin,
+         doRegister,
+         logout,
+         updateInfo,
+         uploadAvatar,
+         changePwd,
+         openPublish,
+         editAct,
+         submitPublish,
+         cancelPublish,
+         loadMyActs,
+         deleteAct,
+         loadMyRegs,
+         openManage,
+         reviewReg,
+         delReg,
+         addReg,
+         reviewActivity,
+         deleteActivity,
+         getActivityStatusText,
+         getActivityStatusClass,
+         loadPendingActivities,
+         setView,
+         loadUserList, // 加载用户列表
+         loadActivitiesWithPagination, // 加载分页活动列表
+         getPageNumbers, // 获取分页页码
+         selectUser, // 选中用户
+         searchUsers, // 搜索用户
+         resetSearch, // 重置搜索
+         confirmDeleteUser, // 确认删除用户
+         confirmUpdateRole, // 确认更新用户角色
+         updateUserInfo, // 更新用户信息
+         createUser, // 创建用户
+         deleteUser, // 删除用户
+         editUser, // 编辑用户
+         updateUser // 更新用户
+         ,filters, searching, applyFilters, resetFilters
+        };
+     }
+   });
+   window.vueApp = app.mount('#app');
+   console.log('app-main: Vue mounted to #app');
+  }catch(err){
+    console.error('app-main error during init:', err);
+    // Re-throw so it's visible in the browser console too
+    throw err;
+  }
+})();
