@@ -93,7 +93,7 @@ function closeNotification(id) {
       const loginForm = reactive({ username: '', password: '' });
       const regForm = reactive({ username: '', password: '', email: '' });
       const profile = reactive({ username: '', email: '', avatar: '/resources/images/default-avatar.jpg' });
-      const pwdForm = reactive({ oldPwd: '', newPwd: '' });
+      const pwdForm = reactive({ oldPwd: '', newPwd: '', newUsername: '' });
       const pubForm = reactive({ activityId: '', name: '', desc: '', location: '', startTime: '', endTime: '', maxNum: 0 });
       const pubFormMsg = ref('');
       const myActs = ref([]);
@@ -371,7 +371,7 @@ function closeNotification(id) {
          else notify(d.msg||'注册失败','danger');
        };
        const logout = ()=>{
-         state.user=null; window.user=null; state.view='welcome'; myActs.value = []; myRegs.value = []; pendingActivities.value = []; notify('已退出');
+         state.user=null; window.user=null; state.view='login'; myActs.value = []; myRegs.value = []; pendingActivities.value = []; notify('已退出');
          // hide left navigation on logout and reset nav state
          const left = document.getElementById('leftNavRow');
          if (left) left.style.display = 'none';
@@ -397,10 +397,59 @@ function closeNotification(id) {
        };
        const changePwd = async ()=>{
          if(!state.user) return;
-         const p = new URLSearchParams({userId:state.user.userId,oldPwd:pwdForm.oldPwd,newPwd:pwdForm.newPwd});
-         const r = await fetch('/api/user/changePwd',{method:'POST',body:p}); const d = await r.json();
-         if(d.status===0){ notify('密码修改成功'); state.view='user'; pwdForm.oldPwd=''; pwdForm.newPwd=''; }
-         else notify('原密码错误','danger');
+         
+         // Check if at least one field is filled
+         if(!pwdForm.newUsername && !pwdForm.newPwd) {
+           notify('请至少填写新用户名或新密码','warning');
+           return;
+         }
+         
+         const p = new URLSearchParams({
+           userId: state.user.userId,
+           oldPwd: pwdForm.oldPwd
+         });
+         
+         // Add new username if provided
+         if(pwdForm.newUsername) {
+           p.append('newUsername', pwdForm.newUsername);
+         }
+         
+         // Add new password if provided
+         if(pwdForm.newPwd) {
+           p.append('newPwd', pwdForm.newPwd);
+         }
+         
+         const r = await fetch('/api/user/changePwd',{method:'POST',body:p}); 
+         const d = await r.json();
+         if(d.status===0){ 
+           notify('信息修改成功'); 
+           state.view='user'; 
+           pwdForm.oldPwd=''; 
+           pwdForm.newPwd=''; 
+           pwdForm.newUsername='';
+           
+           // Update user info in state if username was changed
+           if(d.newUsername) {
+             state.user.username = d.newUsername;
+             profile.username = d.newUsername;
+           }
+           
+           await refreshUserInfo(); 
+         }
+         else notify(d.msg || '原密码错误','danger');
+       };
+       
+       const confirmChangePwd = async () => {
+         // Check if at least one field is filled
+         if(!pwdForm.newUsername && !pwdForm.newPwd) {
+           notify('请至少填写新用户名或新密码','warning');
+           return;
+         }
+         
+         // Show confirmation dialog
+         if(confirm('确定要修改用户名或密码吗？')) {
+           await changePwd();
+         }
        };
        const apply = async (aid, maxNum, count)=>{
          if(!state.user){ notify('请先登录','warning'); state.view='login'; return; }
@@ -967,6 +1016,7 @@ function closeNotification(id) {
          updateInfo,
          uploadAvatar,
          changePwd,
+         confirmChangePwd,
          openPublish,
          editAct,
          submitPublish,
