@@ -978,7 +978,7 @@ function closeNotification(id) {
           sideMenu.value = '修改信息';
         }
         if (viewName === 'activityManagement') {
-          await loadAllActivities();
+          await loadReviewedActivitiesWithPagination(1, 6);
         } else if (viewName === 'userManagement') {
           // 加载第一页用户列表
           await loadUserList(1, 10);
