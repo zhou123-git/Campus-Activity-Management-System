@@ -120,7 +120,7 @@ function closeNotification(id) {
           // 默认切到活动管理列表而不是发布活动
           sideMenu.value = '活动管理列表';
           state.view = 'activityManagement';
-          await loadAllActivities();
+          await loadReviewedActivitiesWithPagination(1, 6);
         } else if (name === '个人中心') {
           sideMenu.value = '我的信息';
           // map user's personal center to existing views
@@ -142,7 +142,8 @@ function closeNotification(id) {
         else if (item === '我的信息') { state.view = 'user'; await refreshUserInfo(); }
         else if (item === '修改密码') { state.view = 'pwd'; }
         else if (item === '发布活动') { state.view = 'publish'; }
-        else if (item === '活动管理列表') { state.view = 'activityManagement'; await loadAllActivities(); }
+        else if (item === '活动管理列表') { state.view = 'activityManagement'; await loadReviewedActivitiesWithPagination(1, 6); }
+        else if (item === '活动审核') { state.view = 'activityManagement'; await loadPendingActivities(); }
         else if (item === '用户列表') { state.view = 'userManagement'; await loadUserList(1, 10); }
         else if (item === '权限管理') { state.view = 'userManagement'; await loadUserList(1,10); }
       };
@@ -162,6 +163,14 @@ function closeNotification(id) {
        const activityPagination = reactive({
          page: 1,
          pageSize: 10,
+         total: 0,
+         totalPages: 0
+       });
+
+       // 活动管理列表分页数据
+       const managementPagination = reactive({
+         page: 1,
+         pageSize: 6,
          total: 0,
          totalPages: 0
        });
@@ -241,6 +250,10 @@ function closeNotification(id) {
            // 用户列表使用用户分页数据
            page = pagination.page;
            totalPages = pagination.totalPages;
+         } else if (state.view === 'activityManagement') {
+           // 活动管理列表使用管理分页数据
+           page = managementPagination.page;
+           totalPages = managementPagination.totalPages;
          } else {
            return [];
          }
@@ -285,6 +298,66 @@ function closeNotification(id) {
            pendingActivities.value = result;
          } else {
            pendingActivities.value = [];
+         }
+       };
+
+       // 加载已审核通过的活动（供管理员在活动管理列表中使用）
+       const loadApprovedActivities = async () => {
+         if (!state.user || state.user.role !== 'admin') return;
+         const res = await fetch(`/api/activity/approved?reviewerId=${state.user.userId}`);
+         const result = await res.json();
+         if (Array.isArray(result)) {
+           pendingActivities.value = result;
+         } else {
+           pendingActivities.value = [];
+         }
+       };
+
+       // 加载已审核（通过或拒绝）的活动（供管理员在活动管理列表中使用）
+       const loadReviewedActivities = async () => {
+         if (!state.user || state.user.role !== 'admin') return;
+         const res = await fetch(`/api/activity/reviewed?reviewerId=${state.user.userId}`);
+         const result = await res.json();
+         if (Array.isArray(result)) {
+           pendingActivities.value = result;
+         } else {
+           pendingActivities.value = [];
+         }
+       };
+
+       // 加载分页的已审核活动
+       const loadReviewedActivitiesWithPagination = async (page = 1, pageSize = 6) => {
+         if (!state.user || state.user.role !== 'admin') return;
+         
+         try {
+           const res = await fetch(`/api/activity/reviewed?reviewerId=${state.user.userId}&page=${page}&pageSize=${pageSize}`);
+           const data = await res.json();
+           
+           let rawList = [];
+           if (data.activities) rawList = data.activities;
+           else rawList = data;
+           
+           pendingActivities.value = rawList;
+           
+           // 更新分页信息
+           if (data.activities) {
+             managementPagination.page = data.page || page;
+             managementPagination.pageSize = data.pageSize || pageSize;
+             managementPagination.total = data.total || (rawList.length || 0);
+             managementPagination.totalPages = data.totalPages || Math.max(1, Math.ceil((managementPagination.total || 0) / managementPagination.pageSize));
+           } else {
+             managementPagination.page = 1;
+             managementPagination.pageSize = rawList.length || pageSize;
+             managementPagination.total = rawList.length || 0;
+             managementPagination.totalPages = Math.max(1, Math.ceil(managementPagination.total / managementPagination.pageSize));
+           }
+         } catch (error) {
+           console.error('加载活动管理列表失败:', error);
+           pendingActivities.value = [];
+           managementPagination.page = 1;
+           managementPagination.pageSize = 6;
+           managementPagination.total = 0;
+           managementPagination.totalPages = 0;
          }
        };
 
@@ -636,9 +709,14 @@ function closeNotification(id) {
           notify(status === 'approved' ? '活动已通过' : '活动已拒绝', 'success');
           // 重新加载活动列表
           await load();
-          // 如果在活动管理页面，重新加载待审核活动
+          // 如果在活动管理页面，重新加载活动
           if (state.view === 'activityManagement') {
-            await loadPendingActivities();
+            // 检查当前选中的菜单是活动管理列表还是活动审核
+            if (sideMenu.value === '活动审核') {
+              await loadPendingActivities();
+            } else {
+              await loadReviewedActivities();
+            }
           }
           // 如果在活动详情页面且查看的是被审核的活动，更新详情
           if (selectedActivity.value && selectedActivity.value.activityId === activityId) {
@@ -689,7 +767,23 @@ function closeNotification(id) {
       };
       
       // 获取活动状态文本
-      const getActivityStatusText = (status) => {
+      const getActivityStatusText = (status, startTime, endTime) => {
+        // 如果有开始时间和结束时间，则基于时间判断状态
+        if (startTime && endTime) {
+          const now = new Date();
+          const start = new Date(startTime);
+          const end = new Date(endTime);
+          
+          if (now < start) {
+            return '未开始';
+          } else if (now >= start && now <= end) {
+            return '进行中';
+          } else {
+            return '已结束';
+          }
+        }
+        
+        // 如果没有时间信息，则使用原来的审核状态
         switch (status) {
           case 'pending': return '待审核';
           case 'approved': return '已通过';
@@ -699,13 +793,43 @@ function closeNotification(id) {
       };
       
       // 获取活动状态样式类
-      const getActivityStatusClass = (status) => {
-        switch (status) {
-          case 'pending': return 'bg-warning text-dark status-pending';
-          case 'approved': return 'bg-success status-approved';
-          case 'rejected': return 'bg-danger status-rejected';
-          default: return 'bg-secondary';
+      const getActivityStatusClass = (status, startTime, endTime) => {
+        // 如果有开始时间和结束时间，则基于时间判断状态
+        if (startTime && endTime) {
+          const now = new Date();
+          const start = new Date(startTime);
+          const end = new Date(endTime);
+          
+          if (now < start) {
+            return 'bg-blue-100 text-blue-800 text-xs font-semibold px-2.5 py-0.5 rounded-full';
+          } else if (now >= start && now <= end) {
+            return 'bg-green-100 text-green-800 text-xs font-semibold px-2.5 py-0.5 rounded-full';
+          } else {
+            return 'bg-gray-100 text-gray-800 text-xs font-semibold px-2.5 py-0.5 rounded-full';
+          }
         }
+        
+        // 如果没有时间信息，则使用原来的审核状态样式
+        switch (status) {
+          case 'pending': return 'bg-amber-100 text-amber-800 text-xs font-semibold px-2.5 py-0.5 rounded-full';
+          case 'approved': return 'bg-emerald-100 text-emerald-800 text-xs font-semibold px-2.5 py-0.5 rounded-full';
+          case 'rejected': return 'bg-rose-100 text-rose-800 text-xs font-semibold px-2.5 py-0.5 rounded-full';
+          default: return 'bg-gray-100 text-gray-800 text-xs font-semibold px-2.5 py-0.5 rounded-full';
+        }
+      };
+      
+      // 判断活动是否已结束
+      const isActivityEnded = (startTime, endTime) => {
+        // 如果没有开始时间和结束时间，则认为活动未结束
+        if (!startTime || !endTime) {
+          return false;
+        }
+        
+        const now = new Date();
+        const end = new Date(endTime);
+        
+        // 活动结束后返回true
+        return now > end;
       };
       
       // 确认更新用户角色
@@ -968,14 +1092,34 @@ function closeNotification(id) {
       };
 
       const resetFilters = () => {
+        // 清空所有筛选条件
         filters.startTime = '';
         filters.endTime = '';
         filters.location = '';
         filters.publisher = '';
         filters.hasAvailable = false;
         searching.value = false;
-        // 重新加载第一页
-        loadActivitiesWithPagination(1, activityPagination.pageSize);
+        
+        // 重新加载第一页数据，确保以分页形式展示
+        loadActivitiesWithPagination(1, 6);
+      };
+
+      // 活动管理列表的筛选功能
+      const applyManagementFilters = async () => {
+        // 对于活动管理列表，我们直接在前端进行筛选
+        await loadReviewedActivitiesWithPagination(1, 6);
+      };
+
+      const resetManagementFilters = () => {
+        // 清空所有筛选条件
+        filters.startTime = '';
+        filters.endTime = '';
+        filters.location = '';
+        filters.publisher = '';
+        filters.hasAvailable = false;
+        
+        // 重新加载第一页数据
+        loadReviewedActivitiesWithPagination(1, 6);
       };
 
       // 首次加载
@@ -1001,6 +1145,7 @@ function closeNotification(id) {
          editingUser, // 编辑中的用户
          pagination, // 分页数据
          activityPagination, // 活动列表分页数据
+         managementPagination, // 活动管理列表分页数据
          selectedUser, // 选中的用户
          searchKeyword, // 搜索关键词
          newRole, // 新角色
@@ -1032,10 +1177,12 @@ function closeNotification(id) {
          deleteActivity,
          getActivityStatusText,
          getActivityStatusClass,
+         isActivityEnded, // 添加新函数
          loadPendingActivities,
          setView,
          loadUserList, // 加载用户列表
          loadActivitiesWithPagination, // 加载分页活动列表
+         loadReviewedActivitiesWithPagination, // 加载分页的已审核活动
          getPageNumbers, // 获取分页页码
          selectUser, // 选中用户
          searchUsers, // 搜索用户
@@ -1046,7 +1193,9 @@ function closeNotification(id) {
          createUser, // 创建用户
          deleteUser, // 删除用户
          editUser, // 编辑用户
-         updateUser // 更新用户
+         updateUser, // 更新用户
+         applyManagementFilters, // 应用活动管理列表筛选
+         resetManagementFilters // 重置活动管理列表筛选
          ,filters, searching, applyFilters, resetFilters
         };
      }

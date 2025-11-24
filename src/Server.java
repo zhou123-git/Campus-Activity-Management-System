@@ -62,6 +62,10 @@ public class Server {
         server.createContext("/api/activity/pending", Server::handlePendingActivities);
         // 管理端查询所有活动
         server.createContext("/api/activity/all", Server::handleAllActivities);
+        // 管理端查询已审核通过的活动
+        server.createContext("/api/activity/approved", Server::handleApprovedActivities);
+        // 管理端查询已审核（通过或拒绝）的活动
+        server.createContext("/api/activity/reviewed", Server::handleReviewedActivities);
         // 管理员用户管理功能
         server.createContext("/api/admin/user/create", Server::handleAdminCreateUser);
         server.createContext("/api/admin/user/delete", Server::handleAdminDeleteUser);
@@ -644,6 +648,110 @@ public class Server {
         }
         sb.append("]");
         resp(t, sb.toString());
+    }
+
+    // 查询已审核通过的活动（供管理员在活动管理列表中使用）
+    static void handleApprovedActivities(HttpExchange t) throws IOException {
+        if (t.getRequestMethod().equals("OPTIONS")) { allowCORS(t); t.sendResponseHeaders(200, -1); return; }
+        
+        // 获取当前用户信息并检查权限
+        String q = t.getRequestURI().getQuery();
+        String reviewerId = "";
+        if(q!=null && q.startsWith("reviewerId=")) reviewerId = q.substring(11);
+        
+        User reviewer = userService.getUserInfo(reviewerId);
+        if (reviewer == null || !"admin".equals(reviewer.getRole())) {
+            resp(t, "{\"status\":1,\"msg\":\"权限不足\"}");
+            return;
+        }
+        
+        List<Activity> acts = activityService.queryApprovedActivitiesForAdmin();
+        StringBuilder sb = new StringBuilder();
+        sb.append("[");
+        for (int i=0;i<acts.size();i++){
+            Activity a = acts.get(i);
+            int count = registrationService.getRegistrationCountForActivity(a.getActivityId());
+            // 获取发布者用户名而不是ID
+            User publisher = userService.getUserInfo(a.getPublisherId());
+            String publisherName = publisher != null ? publisher.getUsername() : "未知用户";
+            sb.append(String.format("{\"activityId\":\"%s\",\"activityName\":\"%s\",\"description\":\"%s\",\"publisherId\":\"%s\",\"publisherName\":\"%s\",\"maxNum\":%d,\"count\":%d,\"eventTime\":\"%s\",\"startTime\":\"%s\",\"endTime\":\"%s\",\"status\":\"%s\",\"location\":\"%s\"}",
+                a.getActivityId(),a.getActivityName(),a.getDescription(),a.getPublisherId(),publisherName,a.getMaxNum(),count,a.getEventTime(),a.getStartTime(),a.getEndTime(), a.getStatus(),a.getLocation()));
+            if(i<acts.size()-1) sb.append(",\n");
+        }
+        sb.append("]");
+        resp(t, sb.toString());
+    }
+
+    // 查询已审核（通过或拒绝）的活动（供管理员在活动管理列表中使用）
+    static void handleReviewedActivities(HttpExchange t) throws IOException {
+        if (t.getRequestMethod().equals("OPTIONS")) { allowCORS(t); t.sendResponseHeaders(200, -1); return; }
+        
+        // 获取当前用户信息并检查权限
+        String q = t.getRequestURI().getQuery();
+        String reviewerId = "";
+        int page = 1;
+        int pageSize = 10;
+        
+        // 解析查询参数
+        if (q != null) {
+            String[] params = q.split("&");
+            for (String param : params) {
+                if (param.startsWith("reviewerId=")) {
+                    reviewerId = param.substring(11);
+                } else if (param.startsWith("page=")) {
+                    try {
+                        page = Integer.parseInt(param.substring(5));
+                    } catch (NumberFormatException e) {
+                        page = 1;
+                    }
+                } else if (param.startsWith("pageSize=")) {
+                    try {
+                        pageSize = Integer.parseInt(param.substring(9));
+                    } catch (NumberFormatException e) {
+                        pageSize = 6; // 默认每页6个活动
+                    }
+                }
+            }
+        }
+        
+        User reviewer = userService.getUserInfo(reviewerId);
+        if (reviewer == null || !"admin".equals(reviewer.getRole())) {
+            resp(t, "{\"status\":1,\"msg\":\"权限不足\"}");
+            return;
+        }
+        
+        List<Activity> allActs = activityService.queryReviewedActivitiesForAdmin();
+        
+        // 实现分页
+        int total = allActs.size();
+        int totalPages = (int) Math.ceil((double) total / pageSize);
+        int fromIndex = (page - 1) * pageSize;
+        int toIndex = Math.min(fromIndex + pageSize, total);
+        
+        // 获取当前页的活动
+        List<Activity> acts = new ArrayList<>();
+        if (fromIndex < total) {
+            acts = allActs.subList(fromIndex, toIndex);
+        }
+        
+        StringBuilder sb = new StringBuilder();
+        sb.append("[");
+        for (int i=0;i<acts.size();i++){
+            Activity a = acts.get(i);
+            int count = registrationService.getRegistrationCountForActivity(a.getActivityId());
+            // 获取发布者用户名而不是ID
+            User publisher = userService.getUserInfo(a.getPublisherId());
+            String publisherName = publisher != null ? publisher.getUsername() : "未知用户";
+            sb.append(String.format("{\"activityId\":\"%s\",\"activityName\":\"%s\",\"description\":\"%s\",\"publisherId\":\"%s\",\"publisherName\":\"%s\",\"maxNum\":%d,\"count\":%d,\"eventTime\":\"%s\",\"startTime\":\"%s\",\"endTime\":\"%s\",\"status\":\"%s\",\"location\":\"%s\"}",
+                a.getActivityId(),a.getActivityName(),a.getDescription(),a.getPublisherId(),publisherName,a.getMaxNum(),count,a.getEventTime(),a.getStartTime(),a.getEndTime(), a.getStatus(),a.getLocation()));
+            if(i<acts.size()-1) sb.append(",\n");
+        }
+        sb.append("]");
+        
+        // 返回分页信息
+        String response = String.format("{\"activities\":%s,\"page\":%d,\"pageSize\":%d,\"total\":%d,\"totalPages\":%d}", 
+            sb.toString(), page, pageSize, total, totalPages);
+        resp(t, response);
     }
 
 

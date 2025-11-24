@@ -17,7 +17,7 @@
         </p>
         <p class="text-gray-500 text-sm mb-3">
           <i class="fas fa-info-circle mr-2"></i>
-          状态：<StatusBadge :status="activity.status" />
+          状态：<StatusBadge :status="activity.status" :start-time="activity.startTime" :end-time="activity.endTime" />
         </p>
       </div>
       <div class="flex justify-between mt-4 space-x-2">
@@ -30,7 +30,7 @@
         <button 
           class="flex-1 bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white font-medium py-2 px-3 rounded-lg transition duration-200 ease-in-out transform hover:-translate-y-0.5 disabled:opacity-50 disabled:cursor-not-allowed"
           @click="$emit('apply', activity.activityId, activity.maxNum, activity.count)"
-          :disabled="activity.status !== 'approved'"
+          :disabled="!isActivityActive"
         >
           报名
         </button>
@@ -53,7 +53,26 @@ export default {
       required: true
     }
   },
-  emits: ['apply', 'view-details']
+  emits: ['apply', 'view-details'],
+  computed: {
+    isActivityActive() {
+      // 活动必须是已通过状态且未结束才能报名
+      if (this.activity.status !== 'approved') {
+        return false;
+      }
+
+      // 如果没有开始时间和结束时间，默认允许报名
+      if (!this.activity.startTime || !this.activity.endTime) {
+        return true;
+      }
+
+      const now = new Date();
+      const end = new Date(this.activity.endTime);
+      
+      // 活动结束后不能报名
+      return now <= end;
+    }
+  }
 }
 </script>
 

@@ -326,4 +326,52 @@ public class ActivityService {
         }catch(Exception e){e.printStackTrace();}
         return list;
     }
+    
+    // 查询已审核通过的活动（供管理员在活动管理列表中使用）
+    public List<Activity> queryApprovedActivitiesForAdmin() {
+        List<Activity> list = new ArrayList<>();
+        try(Connection conn = DB.getConn(); PreparedStatement p = conn.prepareStatement("SELECT * FROM activity WHERE status='approved' ORDER BY published_at ASC, CAST(id AS UNSIGNED) ASC")){
+            ResultSet rs = p.executeQuery();
+            while(rs.next()){
+                Activity activity = new Activity(
+                    rs.getString("id"),
+                    rs.getString("name"),
+                    rs.getString("description"),
+                    rs.getString("publisher_id"),
+                    rs.getInt("max_num"),
+                    rs.getString("event_time"),
+                    rs.getString("start_time"),
+                    rs.getString("end_time"),
+                    rs.getLong("published_at"),
+                    rs.getString("status"));
+                activity.setLocation(rs.getString("location"));
+                list.add(activity);
+            }
+        }catch(Exception e){e.printStackTrace();}
+        return list;
+    }
+    
+    // 查询已审核（通过或拒绝）的活动（供管理员在活动管理列表中使用）
+    public List<Activity> queryReviewedActivitiesForAdmin() {
+        List<Activity> list = new ArrayList<>();
+        try(Connection conn = DB.getConn(); PreparedStatement p = conn.prepareStatement("SELECT * FROM activity WHERE status='approved' OR status='rejected' ORDER BY published_at ASC, CAST(id AS UNSIGNED) ASC")){
+            ResultSet rs = p.executeQuery();
+            while(rs.next()){
+                Activity activity = new Activity(
+                    rs.getString("id"),
+                    rs.getString("name"),
+                    rs.getString("description"),
+                    rs.getString("publisher_id"),
+                    rs.getInt("max_num"),
+                    rs.getString("event_time"),
+                    rs.getString("start_time"),
+                    rs.getString("end_time"),
+                    rs.getLong("published_at"),
+                    rs.getString("status"));
+                activity.setLocation(rs.getString("location"));
+                list.add(activity);
+            }
+        }catch(Exception e){e.printStackTrace();}
+        return list;
+    }
 }

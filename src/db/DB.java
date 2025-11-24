@@ -19,7 +19,7 @@ import java.util.logging.Logger;
 public class DB {
     private static final String URL = "jdbc:mysql://localhost:3306/school_event?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC&characterEncoding=UTF-8&connectionCollation=utf8mb4_unicode_ci&createDatabaseIfNotExist=true";
     private static final String USER = "root";
-    private static final String PWD = "123456";
+    private static final String PWD = "123456zhou";
     static {
         // Try to load JDBC driver class. If not available on classpath, try to load the jar from ./lib or other locations
         try {

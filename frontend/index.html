@@ -314,6 +314,7 @@
               <i class="fas fa-tasks mr-2"></i>活动管理
               <div class="sub-menu" v-if="topNav==='活动管理'">
                 <a href="javascript:void(0)" :class="{active: sideMenu==='活动管理列表'}" @click.stop="selectSideMenu('活动管理列表')">活动管理列表</a>
+                <a href="javascript:void(0)" :class="{active: sideMenu==='活动审核'}" @click.stop="selectSideMenu('活动审核')">活动审核</a>
               </div>
             </div>
 
@@ -418,7 +419,7 @@
                     <div class="p-5 h-full flex flex-col bg-white">
                       <div class="d-flex justify-content-between align-items-start mb-2">
                         <h5 class="text-indigo-600 font-bold text-lg m-0">{{ a.activityName }}</h5>
-                        <span :class="getActivityStatusClass(a.status)" class="badge">{{ getActivityStatusText(a.status) }}</span>
+                        <span :class="getActivityStatusClass(a.status, a.startTime, a.endTime)" class="badge">{{ getActivityStatusText(a.status, a.startTime, a.endTime) }}</span>
                       </div>
                       <div class="flex-grow">
                         <p class="text-gray-500 text-sm mb-2">
@@ -446,9 +447,11 @@
                           查看详情
                         </button>
                         <button
-                          class="flex-1 bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white font-medium py-2 px-3 rounded-lg transition duration-200 ease-in-out transform hover:-translate-y-0.5"
+                          :class="isActivityEnded(a.startTime, a.endTime) || a.status !== 'approved' ? 
+                            'flex-1 bg-gray-400 text-white font-medium py-2 px-3 rounded-lg transition duration-200 ease-in-out transform cursor-not-allowed' : 
+                            'flex-1 bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white font-medium py-2 px-3 rounded-lg transition duration-200 ease-in-out transform hover:-translate-y-0.5'"
                           @click="apply(a.activityId, a.maxNum, a.count)"
-                          :disabled="a.status !== 'approved'">
+                          :disabled="isActivityEnded(a.startTime, a.endTime) || a.status !== 'approved'">
                           报名
                         </button>
                       </div>
@@ -490,8 +493,127 @@
       </div>
 
       <!-- 活动管理列表 -->
-      <div v-if="state.view==='activityManagement' && state.user && state.user.role === 'admin'">
-        <h5 class="mb-3 text-orange-500 font-bold text-lg">活动管理列表</h5>
+      <div v-if="state.view==='activityManagement' && state.user && state.user.role === 'admin' && sideMenu === '活动管理列表'">
+        <div class="card">
+          <div class="card-header">
+            <h5 class="mb-0 text-orange-500 font-bold text-lg">活动管理列表</h5>
+          </div>
+          <div class="card-body">
+            <!-- 搜索/筛选与列表并排布局 -->
+            <div class="row">
+              <!-- Horizontal filter bar placed above activity cards -->
+              <div class="col-12 mb-3">
+                <div class="ant-card p-3">
+                  <div class="d-flex flex-wrap align-items-end gap-3">
+                    <h6 class="mb-0">筛选活动</h6>
+                    <div class="d-flex flex-wrap gap-2 align-items-center" style="flex:1">
+                      <div class="mb-2" style="min-width:160px">
+                        <label class="form-label small mb-1">开始时间</label>
+                        <input type="datetime-local" class="form-control form-control-sm" v-model="filters.startTime" />
+                      </div>
+                      <div class="mb-2" style="min-width:160px">
+                        <label class="form-label small mb-1">结束时间</label>
+                        <input type="datetime-local" class="form-control form-control-sm" v-model="filters.endTime" />
+                      </div>
+                      <div class="mb-2" style="min-width:200px">
+                        <label class="form-label small mb-1">地点</label>
+                        <input type="text" class="form-control form-control-sm" placeholder="例如：教学楼、礼堂" v-model="filters.location" />
+                      </div>
+                      <div class="mb-2" style="min-width:160px">
+                        <label class="form-label small mb-1">发布者</label>
+                        <input type="text" class="form-control form-control-sm" placeholder="用户名或ID" v-model="filters.publisher" />
+                      </div>
+                      <div class="form-check mb-2" style="min-width:220px">
+                        <input class="form-check-input" type="checkbox" id="hasAvailable" v-model="filters.hasAvailable">
+                        <label class="form-check-label small" for="hasAvailable">仅显示有空余名额的活动</label>
+                      </div>
+                    </div>
+                    <div class="ms-auto d-flex gap-2">
+                      <button class="ant-btn ant-btn-primary" @click="applyManagementFilters">搜索</button>
+                      <button class="ant-btn ant-btn-default" @click="resetManagementFilters">重置</button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- 列表区域（下方） -->
+              <div class="col-12">
+                <!-- 网格布局显示活动 -->
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  <div class="activity-card ant-card-hoverable rounded-xl overflow-hidden" v-for="a in pendingActivities" :key="a.activityId">
+                    <div class="p-5 h-full flex flex-col bg-white">
+                      <div class="d-flex justify-content-between align-items-start mb-2">
+                        <h5 class="text-indigo-600 font-bold text-lg m-0">{{ a.activityName }}</h5>
+                        <span v-if="a.status === 'approved'" class="bg-emerald-100 text-emerald-800 text-xs font-semibold px-2.5 py-0.5 rounded-full">已通过</span>
+                        <span v-else class="bg-rose-100 text-rose-800 text-xs font-semibold px-2.5 py-0.5 rounded-full">已拒绝</span>
+                      </div>
+                      <div class="flex-grow">
+                        <p class="text-gray-500 text-sm mb-2">
+                          <i class="far fa-calendar-alt mr-2"></i>
+                          时间：{{ (a.startTime||'').replace('T',' ') }} ~ {{ (a.endTime||'').replace('T',' ') }}
+                        </p>
+                        <p class="text-gray-500 text-sm mb-2">
+                          <i class="fas fa-map-marker-alt mr-2"></i>
+                          地点：{{ a.location }}
+                        </p>
+                        <p class="text-gray-500 text-sm mb-2">
+                          <i class="fas fa-user mr-2"></i>
+                          发布者：{{ a.publisherName || a.publisherId }}
+                        </p>
+                        <p class="text-gray-500 text-sm mb-2 d-flex align-items-center justify-content-between">
+                          <span><i class="fas fa-users mr-2"></i> 人数：{{ a.count||0 }}/{{ a.maxNum||0 }}</span>
+                          <small class="text-muted">ID: {{ a.activityId }}</small>
+                        </p>
+                      </div>
+                      <div class="flex justify-between mt-4 space-x-2">
+                        <button
+                          class="flex-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-medium py-2 px-3 rounded-lg transition duration-200 ease-in-out transform hover:-translate-y-0.5"
+                          @click="showActivityDetail(a)"
+                        >
+                          查看详情
+                        </button>
+                        <button class="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium py-2 px-3 rounded-lg transition duration-200 ease-in-out transform hover:-translate-y-0.5" @click="deleteActivity(a.activityId)">删除</button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- 无数据提示 -->
+                <div v-if="pendingActivities.length === 0" class="text-center text-muted py-4">
+                  暂无活动
+                </div>
+
+                <!-- 活动管理列表分页控件 -->
+                <div class="pagination-container mt-4" v-if="managementPagination.totalPages > 1">
+                  <nav aria-label="活动管理列表分页">
+                    <ul class="pagination justify-content-center">
+                      <li class="page-item" :class="{ disabled: managementPagination.page <= 1 }">
+                        <a class="page-link" href="javascript:void(0)" @click="loadReviewedActivitiesWithPagination(managementPagination.page - 1, managementPagination.pageSize)">上一页</a>
+                      </li>
+
+                      <li class="page-item" v-for="n in getPageNumbers()" :key="n" :class="{ active: n === managementPagination.page }">
+                        <a class="page-link" href="javascript:void(0)" @click="loadReviewedActivitiesWithPagination(n, managementPagination.pageSize)">{{ n }}</a>
+                      </li>
+
+                      <li class="page-item" :class="{ disabled: managementPagination.page >= managementPagination.totalPages }">
+                        <a class="page-link" href="javascript:void(0)" @click="loadReviewedActivitiesWithPagination(managementPagination.page + 1, managementPagination.pageSize)">下一页</a>
+                      </li>
+                    </ul>
+                  </nav>
+
+                  <div class="text-center text-muted small">
+                    共 {{ managementPagination.total }} 条记录，第 {{ managementPagination.page }} / {{ managementPagination.totalPages }} 页
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 待审核活动列表 -->
+      <div v-if="state.view==='activityManagement' && state.user && state.user.role === 'admin' && sideMenu === '活动审核'">
+        <h5 class="mb-3 text-orange-500 font-bold text-lg">待审核活动</h5>
         <div v-if="pendingActivities.length===0" class="text-muted p-4 text-center bg-white rounded">暂无活动</div>
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           <div class="activity-card ant-card-hoverable rounded-xl overflow-hidden" v-for="a in pendingActivities" :key="a.activityId">
@@ -532,7 +654,6 @@
                 <div class="flex space-x-2">
                   <button v-if="a.status === 'pending'" class="flex-1 bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white font-medium py-2 px-3 rounded-lg transition duration-200 ease-in-out transform hover:-translate-y-0.5" @click="reviewActivity(a.activityId, 'approved')">通过</button>
                   <button v-if="a.status === 'pending'" class="flex-1 bg-gradient-to-r from-red-500 to-rose-500 hover:from-red-600 hover:to-rose-600 text-white font-medium py-2 px-3 rounded-lg transition duration-200 ease-in-out transform hover:-translate-y-0.5" @click="reviewActivity(a.activityId, 'rejected')">拒绝</button>
-                  <button class="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium py-2 px-3 rounded-lg transition duration-200 ease-in-out transform hover:-translate-y-0.5" @click="deleteActivity(a.activityId)">删除</button>
                 </div>
               </div>
             </div>
@@ -580,7 +701,7 @@
         </div>
 
         <div class="flex gap-2 mt-3">
-          <button class="ant-btn ant-btn-success" @click="apply(selectedActivity.activityId, selectedActivity.maxNum, selectedActivity.count)" :disabled="selectedActivity.status !== 'approved'">报名参加</button>
+<!--          <button class="ant-btn ant-btn-success" @click="apply(selectedActivity.activityId, selectedActivity.maxNum, selectedActivity.count)" :disabled="selectedActivity.status !== 'approved'">报名参加</button>-->
           <div v-if="state.user && state.user.role === 'admin' && selectedActivity.status === 'pending'">
             <button class="ant-btn ant-btn-success mr-1" @click="reviewActivity(selectedActivity.activityId, 'approved')">通过</button>
             <button class="ant-btn ant-btn-danger" @click="reviewActivity(selectedActivity.activityId, 'rejected')">拒绝</button>
