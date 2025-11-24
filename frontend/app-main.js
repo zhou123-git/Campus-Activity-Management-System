@@ -141,7 +141,7 @@ function closeNotification(id) {
         else if (item === '我的活动') { state.view = 'myact'; await loadMyActs(); }
         else if (item === '我的信息') { state.view = 'user'; await refreshUserInfo(); }
         else if (item === '修改密码') { state.view = 'pwd'; }
-        else if (item === '发布活动') { state.view = 'publish'; }
+        else if (item === '发布活动') { state.view = 'publish'; openPublish(); }
         else if (item === '活动管理列表') { state.view = 'activityManagement'; await loadReviewedActivitiesWithPagination(1, 6); }
         else if (item === '活动审核') { state.view = 'activityManagement'; await loadPendingActivities(); }
         else if (item === '用户列表') { state.view = 'userManagement'; await loadUserList(1, 10); }
@@ -935,10 +935,10 @@ function closeNotification(id) {
           if (viewName === 'activities') sideMenu.value = '活动列表';
           if (viewName === 'myreg') sideMenu.value = '我的报名';
           if (viewName === 'myact') sideMenu.value = '我的活动';
-        } else if (viewName === 'activityManagement' || viewName === 'publish' || viewName === 'manage') {
-          topNav.value = '活动管理';
-          if (viewName === 'activityManagement') sideMenu.value = '活动管理列表';
           if (viewName === 'publish') sideMenu.value = '发布活动';
+        } else if (viewName === 'activityManagement') {
+          topNav.value = '活动管理';
+          sideMenu.value = '活动管理列表';
         } else if (viewName === 'userManagement') {
           topNav.value = '用户管理';
           sideMenu.value = '用户列表';
@@ -950,6 +950,9 @@ function closeNotification(id) {
           await loadUserList(1, 10);
           // 重置新角色为默认值
           newRole.value = 'user';
+        } else if (viewName === 'publish') {
+          // 确保发布活动表单被正确初始化
+          openPublish();
         }
        };
 
