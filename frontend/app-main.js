@@ -140,7 +140,7 @@ function closeNotification(id) {
         else if (item === '我的报名') { state.view = 'myreg'; await loadMyRegs(); }
         else if (item === '我的活动') { state.view = 'myact'; await loadMyActs(); }
         else if (item === '我的信息') { state.view = 'user'; await refreshUserInfo(); }
-        else if (item === '修改密码') { state.view = 'pwd'; }
+        else if (item === '修改信息') { state.view = 'pwd'; }
         else if (item === '发布活动') { state.view = 'publish'; openPublish(); }
         else if (item === '活动管理列表') { state.view = 'activityManagement'; await loadReviewedActivitiesWithPagination(1, 6); }
         else if (item === '活动审核') { state.view = 'activityManagement'; await loadPendingActivities(); }
@@ -176,7 +176,7 @@ function closeNotification(id) {
        });
 
        // 搜索/筛选状态
-       const filters = reactive({ startTime: '', endTime: '', location: '', publisher: '', hasAvailable: false });
+       const filters = reactive({ startTime: '', endTime: '', location: '', publisher: '', hasAvailable: false, status: '' });
        const searching = ref(false);
 
        const load = async ()=>{
@@ -330,26 +330,42 @@ function closeNotification(id) {
          if (!state.user || state.user.role !== 'admin') return;
          
          try {
-           const res = await fetch(`/api/activity/reviewed?reviewerId=${state.user.userId}&page=${page}&pageSize=${pageSize}`);
+           // 如果处于搜索状态，请求更大的 pageSize 以便客户端过滤
+           const reqPageSize = searching.value ? Math.max(pageSize, 100) : pageSize;
+           const res = await fetch(`/api/activity/reviewed?reviewerId=${state.user.userId}&page=${page}&pageSize=${reqPageSize}`);
            const data = await res.json();
            
            let rawList = [];
            if (data.activities) rawList = data.activities;
            else rawList = data;
            
-           pendingActivities.value = rawList;
-           
-           // 更新分页信息
-           if (data.activities) {
-             managementPagination.page = data.page || page;
-             managementPagination.pageSize = data.pageSize || pageSize;
-             managementPagination.total = data.total || (rawList.length || 0);
-             managementPagination.totalPages = data.totalPages || Math.max(1, Math.ceil((managementPagination.total || 0) / managementPagination.pageSize));
+           if (!searching.value) {
+             // 非搜索时使用后端分页信息
+             pendingActivities.value = rawList;
+             
+             if (data.activities) {
+               managementPagination.page = data.page || page;
+               managementPagination.pageSize = data.pageSize || pageSize;
+               managementPagination.total = data.total || (rawList.length || 0);
+               managementPagination.totalPages = data.totalPages || Math.max(1, Math.ceil((managementPagination.total || 0) / managementPagination.pageSize));
+             } else {
+               managementPagination.page = 1;
+               managementPagination.pageSize = rawList.length || pageSize;
+               managementPagination.total = rawList.length || 0;
+               managementPagination.totalPages = Math.max(1, Math.ceil(managementPagination.total / managementPagination.pageSize));
+             }
            } else {
-             managementPagination.page = 1;
-             managementPagination.pageSize = rawList.length || pageSize;
-             managementPagination.total = rawList.length || 0;
+             // 搜索时：在客户端进行过滤并做 client-side pagination
+             const filtered = applyClientFilters(rawList);
+             managementPagination.page = page;
+             // keep the visible pageSize as the requested pageSize param to allow paging through results
+             managementPagination.pageSize = pageSize || 6;
+             managementPagination.total = filtered.length;
              managementPagination.totalPages = Math.max(1, Math.ceil(managementPagination.total / managementPagination.pageSize));
+             // slice for the requested page
+             const start = (page - 1) * managementPagination.pageSize;
+             const end = start + managementPagination.pageSize;
+             pendingActivities.value = filtered.slice(start, end);
            }
          } catch (error) {
            console.error('加载活动管理列表失败:', error);
@@ -433,7 +449,15 @@ function closeNotification(id) {
            await selectTopNav('活动中心');
            notify('登录成功');
            await refreshUserInfo();
-           await loadMyActs(); await loadMyRegs();
+           await loadMyActs(); 
+           await loadMyRegs();
+           
+           // 初始化之前的状态数据
+           previousActivities.value = [...myActs.value];
+           await loadPendingActivities();
+           previousPendingActivities.value = [...pendingActivities.value];
+           
+           await load();
          } else notify(d.msg||'登录失败','danger');
        };
        const doRegister = async ()=>{
@@ -653,8 +677,15 @@ function closeNotification(id) {
         pubFormMsg.value='';
         if(!pubForm.name||!pubForm.desc||!pubForm.startTime||!pubForm.endTime||!pubForm.maxNum){ pubFormMsg.value='请填写完整'; return; }
         
-        // 检查活动结束时间不得早于开始时间
+        // 检查活动开始时间不能小于当前时间
         const startTime = new Date(pubForm.startTime);
+        const now = new Date();
+        if (startTime < now) {
+          pubFormMsg.value='活动开始时间不能小于当前时间';
+          return;
+        }
+        
+        // 检查活动结束时间不得早于开始时间
         const endTime = new Date(pubForm.endTime);
         if (endTime <= startTime) {
           pubFormMsg.value='活动结束时间必须晚于开始时间';
@@ -942,6 +973,9 @@ function closeNotification(id) {
         } else if (viewName === 'userManagement') {
           topNav.value = '用户管理';
           sideMenu.value = '用户列表';
+        } else if (viewName === 'pwd') {
+          topNav.value = '个人中心';
+          sideMenu.value = '修改信息';
         }
         if (viewName === 'activityManagement') {
           await loadAllActivities();
@@ -955,6 +989,207 @@ function closeNotification(id) {
           openPublish();
         }
        };
+
+      // 刷新通知功能
+      const refreshNotifications = async () => {
+        if (!state.user) {
+          notify('请先登录', 'warning');
+          return;
+        }
+        
+        try {
+          let notifications = [];
+          
+          // 保存当前状态用于比较
+          const oldMyActs = [...(previousMyActs.value || [])];
+          const oldMyRegs = [...(previousMyRegs.value || [])];
+          
+          // 获取用户最新的活动申请状态
+          await loadMyRegs();
+          
+          // 获取用户发布的活动的审核状态
+          await loadMyActs();
+          
+          // 检查用户发布的活动是否有状态变化（仅在之前有数据时检查）
+          if (oldMyActs.length > 0) {
+            for (const currentAct of (myActs.value || [])) {
+              const oldAct = oldMyActs.find(a => a.activityId === currentAct.activityId);
+              if (oldAct && oldAct.status !== currentAct.status) {
+                // 活动状态发生了变化
+                if (currentAct.status === 'approved') {
+                  notifications.push(`活动"${currentAct.activityName}"已通过审核`);
+                } else if (currentAct.status === 'rejected') {
+                  notifications.push(`活动"${currentAct.activityName}"未通过审核`);
+                }
+              }
+            }
+          }
+          
+          // 检查用户报名的活动是否有状态变化（仅在之前有数据时检查）
+          if (oldMyRegs.length > 0) {
+            for (const currentReg of (myRegs.value || [])) {
+              const oldReg = oldMyRegs.find(r => r.registrationId === currentReg.registrationId);
+              if (oldReg && oldReg.status !== currentReg.status) {
+                // 报名状态发生了变化
+                if (currentReg.status === '已通过') {
+                  notifications.push(`活动"${currentReg.activityName}"的报名申请已通过`);
+                } else if (currentReg.status === '已拒绝') {
+                  notifications.push(`活动"${currentReg.activityName}"的报名申请被拒绝`);
+                }
+              }
+            }
+          }
+          
+          // 如果是管理员，检查是否有新的待审核活动
+          if (state.user.role === 'admin') {
+            const oldPending = [...(previousPendingActivities.value || [])];
+            
+            // 根据当前视图加载相应的活动数据
+            if (state.view === 'activityManagement' && sideMenu.value === '活动管理列表') {
+              // 在活动管理列表界面，刷新已审核活动
+              await loadReviewedActivitiesWithPagination(managementPagination.page, managementPagination.pageSize);
+            } else if (state.view === 'activityManagement' && sideMenu.value === '活动审核') {
+              // 在活动审核界面，刷新待审核活动
+              await loadPendingActivities();
+            } else {
+              // 其他情况加载待审核活动
+              await loadPendingActivities();
+            }
+            
+            // 检查是否有新的待审核活动（仅在之前有数据时检查）
+            if (pendingActivities.value && oldPending.length > 0) {
+              // 比较新旧列表，找出新增的活动
+              const newActivities = (pendingActivities.value || []).filter(newAct => 
+                !oldPending.some(oldAct => oldAct.activityId === newAct.activityId)
+              );
+              
+              if (newActivities.length > 0) {
+                notifications.push(`有${newActivities.length}个新活动等待审核`);
+              }
+            }
+            
+            // 更新之前的状态
+            previousPendingActivities.value = [...(pendingActivities.value || [])];
+          }
+          
+          // 更新之前的状态
+          previousMyActs.value = [...(myActs.value || [])];
+          previousMyRegs.value = [...(myRegs.value || [])];
+          
+          // 显示通知
+          if (notifications.length > 0) {
+            // 使用自定义确认对话框显示通知
+            showNotificationDialog(notifications);
+          } else {
+            notify('暂无新通知', 'info');
+          }
+        } catch (error) {
+          console.error('刷新通知失败:', error);
+          notify('刷新成功', 'success'); // 即使没有通知，也表示刷新成功
+        }
+      };
+      
+      // 显示通知对话框
+      const showNotificationDialog = (notifications) => {
+        // 创建自定义对话框
+        const dialog = document.createElement('div');
+        dialog.className = 'notification-dialog';
+        dialog.style.cssText = `
+          position: fixed;
+          top: 20px;
+          right: 20px;
+          z-index: 10000;
+          background: white;
+          border-radius: 8px;
+          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+          padding: 16px;
+          min-width: 300px;
+          max-width: 400px;
+          border-left: 4px solid #1890ff;
+          animation: slideIn 0.3s ease-out;
+        `;
+        
+        // 添加动画样式
+        if (!document.querySelector('#notification-styles')) {
+          const style = document.createElement('style');
+          style.id = 'notification-styles';
+          style.textContent = `
+            @keyframes slideIn {
+              from {
+                transform: translateX(100%);
+                opacity: 0;
+              }
+              to {
+                transform: translateX(0);
+                opacity: 1;
+              }
+            }
+            
+            @keyframes slideOut {
+              from {
+                transform: translateX(0);
+                opacity: 1;
+              }
+              to {
+                transform: translateX(100%);
+                opacity: 0;
+              }
+            }
+          `;
+          document.head.appendChild(style);
+        }
+        
+        let content = `
+          <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px;">
+            <h6 style="margin: 0; color: #1890ff;">系统通知</h6>
+            <button class="close-btn" style="background: none; border: none; font-size: 18px; cursor: pointer; color: #999;">×</button>
+          </div>
+          <ul style="margin: 0; padding-left: 20px;">`;
+        
+        notifications.forEach(notification => {
+          content += `<li style="margin-bottom: 8px; color: #333;">${notification}</li>`;
+        });
+        
+        content += `
+          </ul>
+          <div style="display: flex; justify-content: flex-end; margin-top: 16px;">
+            <button class="confirm-btn" style="
+              background: #1890ff;
+              color: white;
+              border: none;
+              padding: 6px 16px;
+              border-radius: 4px;
+              cursor: pointer;
+              font-size: 14px;
+            ">确定</button>
+          </div>
+        `;
+        
+        dialog.innerHTML = content;
+        
+        // 添加关闭按钮事件
+        const closeBtn = dialog.querySelector('.close-btn');
+        const confirmBtn = dialog.querySelector('.confirm-btn');
+        
+        const closeDialog = () => {
+          // 添加淡出动画
+          dialog.style.animation = 'slideOut 0.3s ease-out forwards';
+          setTimeout(() => {
+            if (document.body.contains(dialog)) {
+              document.body.removeChild(dialog);
+            }
+          }, 300);
+        };
+        
+        closeBtn.addEventListener('click', closeDialog);
+        confirmBtn.addEventListener('click', closeDialog);
+        
+        // 添加到页面
+        document.body.appendChild(dialog);
+        
+        // 5秒后自动消失
+        setTimeout(closeDialog, 5000);
+      };
 
       // 管理员功能：创建用户
       const createUser = async () => {
@@ -1084,6 +1319,11 @@ function closeNotification(id) {
             const maxNum = parseInt(a.maxNum || 0, 10);
             if (isNaN(count) || isNaN(maxNum) || count >= maxNum) return false;
           }
+          // 状态过滤
+          if (filters.status && a.status !== filters.status) {
+            return false;
+          }
+
           return true;
         });
       };
@@ -1101,6 +1341,7 @@ function closeNotification(id) {
         filters.location = '';
         filters.publisher = '';
         filters.hasAvailable = false;
+
         searching.value = false;
         
         // 重新加载第一页数据，确保以分页形式展示
@@ -1109,8 +1350,10 @@ function closeNotification(id) {
 
       // 活动管理列表的筛选功能
       const applyManagementFilters = async () => {
-        // 对于活动管理列表，我们直接在前端进行筛选
-        await loadReviewedActivitiesWithPagination(1, 6);
+        // 对于活动管理列表，我们需要在客户端进行筛选
+        // 先加载所有数据
+        searching.value = true;
+        await loadReviewedActivitiesWithPagination(1, 100);
       };
 
       const resetManagementFilters = () => {
@@ -1119,11 +1362,19 @@ function closeNotification(id) {
         filters.endTime = '';
         filters.location = '';
         filters.publisher = '';
-        filters.hasAvailable = false;
+        filters.status = '';
+
+        searching.value = false;
         
         // 重新加载第一页数据
         loadReviewedActivitiesWithPagination(1, 6);
       };
+
+      // 存储上一次的活动状态，用于比较变化
+      const previousActivities = ref([]);
+      const previousPendingActivities = ref([]);
+      const previousMyActs = ref([]); 
+      const previousMyRegs = ref([]);
 
       // 首次加载
       load();
@@ -1198,8 +1449,10 @@ function closeNotification(id) {
          editUser, // 编辑用户
          updateUser, // 更新用户
          applyManagementFilters, // 应用活动管理列表筛选
-         resetManagementFilters // 重置活动管理列表筛选
-         ,filters, searching, applyFilters, resetFilters
+         resetManagementFilters, // 重置活动管理列表筛选
+         filters, searching, applyFilters, resetFilters,
+         refreshNotifications, // 刷新通知功能
+         showNotificationDialog // 显示通知对话框
         };
      }
    });

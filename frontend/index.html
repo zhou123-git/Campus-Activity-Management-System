@@ -329,7 +329,7 @@
               <i class="fas fa-user-circle mr-2"></i>个人中心
               <div class="sub-menu" v-if="topNav==='个人中心'">
                 <a href="javascript:void(0)" :class="{active: sideMenu==='我的信息'}" @click.stop="selectSideMenu('我的信息')">我的信息</a>
-                <a href="javascript:void(0)" :class="{active: sideMenu==='修改密码'}" @click.stop="selectSideMenu('修改密码')">修改密码</a>
+                <a href="javascript:void(0)" :class="{active: sideMenu==='修改信息'}" @click.stop="selectSideMenu('修改信息')">修改信息</a>
               </div>
             </div>
           </div>
@@ -342,6 +342,10 @@
       <!-- Main header: shows avatar and user info horizontally aligned with top of main content -->
       <div class="d-flex justify-content-end align-items-center mb-3" v-if="state.user">
         <div class="d-flex align-items-center" style="gap:12px;">
+          <!-- 添加刷新按钮 -->
+          <button class="btn btn-light btn-sm" @click="refreshNotifications" title="刷新通知">
+            <i class="fas fa-sync-alt"></i>
+          </button>
           <div class="text-end me-2">
             <div style="font-weight:700">{{ state.user.username }}</div>
             <div class="small text-muted">{{ state.user.role === 'admin' ? '管理员' : '普通用户' }}</div>
@@ -402,6 +406,7 @@
                         <input class="form-check-input" type="checkbox" id="hasAvailable" v-model="filters.hasAvailable">
                         <label class="form-check-label small" for="hasAvailable">仅显示有空余名额的活动</label>
                       </div>
+
                     </div>
                     <div class="ms-auto d-flex gap-2">
                       <button class="ant-btn ant-btn-primary" @click="applyFilters">搜索</button>
@@ -523,10 +528,15 @@
                         <label class="form-label small mb-1">发布者</label>
                         <input type="text" class="form-control form-control-sm" placeholder="用户名或ID" v-model="filters.publisher" />
                       </div>
-                      <div class="form-check mb-2" style="min-width:220px">
-                        <input class="form-check-input" type="checkbox" id="hasAvailable" v-model="filters.hasAvailable">
-                        <label class="form-check-label small" for="hasAvailable">仅显示有空余名额的活动</label>
+                      <div class="mb-2" style="min-width:160px">
+                        <label class="form-label small mb-1">状态</label>
+                        <select class="form-control form-control-sm" v-model="filters.status">
+                          <option value="">全部状态</option>
+                          <option value="approved">已通过</option>
+                          <option value="rejected">已拒绝</option>
+                        </select>
                       </div>
+
                     </div>
                     <div class="ms-auto d-flex gap-2">
                       <button class="ant-btn ant-btn-primary" @click="applyManagementFilters">搜索</button>
