@@ -77,6 +77,7 @@ public class DB {
             try { s.executeUpdate("ALTER TABLE activity ADD COLUMN end_time VARCHAR(32)"); } catch (Exception ignore) {}
             try { s.executeUpdate("ALTER TABLE activity ADD COLUMN published_at BIGINT"); } catch (Exception ignore) {}
             try { s.executeUpdate("ALTER TABLE activity ADD COLUMN status VARCHAR(32) DEFAULT 'approved'"); } catch (Exception ignore) {}
+            try { s.executeUpdate("ALTER TABLE activity ADD COLUMN location VARCHAR(256)"); } catch (Exception ignore) {}
             // 报名registration表 (修改id和user_id字段长度以适应8位数字ID)
             s.executeUpdate("CREATE TABLE IF NOT EXISTS registration (id VARCHAR(8) PRIMARY KEY, user_id VARCHAR(8), activity_id VARCHAR(36), status VARCHAR(32)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;");
 

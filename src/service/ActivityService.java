@@ -5,6 +5,8 @@ import entity.User;
 import db.DB;
 import java.sql.*;
 import java.util.*;
+import java.time.LocalDateTime;
+import java.time.LocalDate;
 
 public class ActivityService {
     // 发布活动（按顺序自增ID，记录开始/结束时间与发布时间）
@@ -30,18 +32,17 @@ public class ActivityService {
                 status = "pending"; // 普通用户发布的活动需要审核
             }
             
-            try(PreparedStatement p = conn.prepareStatement("INSERT INTO activity(id,name,description,publisher_id,max_num,event_time,start_time,end_time,published_at,status,location) VALUES(?,?,?,?,?,?,?,?,?,?,?)")){
+            try(PreparedStatement p = conn.prepareStatement("INSERT INTO activity(id,name,description,publisher_id,max_num,start_time,end_time,published_at,status,location) VALUES(?,?,?,?,?,?,?,?,?,?)")){
                 p.setString(1,id);
                 p.setString(2,name);
                 p.setString(3,desc);
                 p.setString(4,publisherId);
                 p.setInt(5,maxNum);
-                p.setString(6,eventTime);
-                p.setString(7,startTime);
-                p.setString(8,endTime);
-                p.setLong(9,publishedAt);
-                p.setString(10,status);
-                p.setString(11,location);
+                p.setString(6,startTime);
+                p.setString(7,endTime);
+                p.setLong(8,publishedAt);
+                p.setString(9,status);
+                p.setString(10,location);
                 p.executeUpdate();
                 return true;
             }
@@ -59,9 +60,8 @@ public class ActivityService {
                     rs.getString("description"),
                     rs.getString("publisher_id"),
                     rs.getInt("max_num"),
-                    rs.getString("event_time"),
-                    rs.getString("start_time"),
-                    rs.getString("end_time"),
+                    parseLocalDateTime(rs.getString("start_time")),
+                    parseLocalDateTime(rs.getString("end_time")),
                     rs.getLong("published_at"),
                     rs.getString("status"));
                 activity.setLocation(rs.getString("location"));
@@ -86,9 +86,8 @@ public class ActivityService {
                     rs.getString("description"),
                     rs.getString("publisher_id"),
                     rs.getInt("max_num"),
-                    rs.getString("event_time"),
-                    rs.getString("start_time"),
-                    rs.getString("end_time"),
+                    parseLocalDateTime(rs.getString("start_time")),
+                    parseLocalDateTime(rs.getString("end_time")),
                     rs.getLong("published_at"),
                     rs.getString("status"));
                 activity.setLocation(rs.getString("location"));
@@ -131,16 +130,15 @@ public class ActivityService {
     
     // 更新活动（仅限发布者本人）
     public boolean updateActivity(String activityId, String name, String desc, String publisherId, int maxNum, String eventTime, String startTime, String endTime, String location) {
-        try(Connection conn = DB.getConn(); PreparedStatement p = conn.prepareStatement("UPDATE activity SET name=?,description=?,max_num=?,event_time=?,start_time=?,end_time=?,location=? WHERE id=? AND publisher_id=?")){
+        try(Connection conn = DB.getConn(); PreparedStatement p = conn.prepareStatement("UPDATE activity SET name=?,description=?,max_num=?,start_time=?,end_time=?,location=? WHERE id=? AND publisher_id=?")){
             p.setString(1,name);
             p.setString(2,desc);
             p.setInt(3,maxNum);
-            p.setString(4,eventTime);
-            p.setString(5,startTime);
-            p.setString(6,endTime);
-            p.setString(7,location);
-            p.setString(8,activityId);
-            p.setString(9,publisherId);
+            p.setString(4,startTime);
+            p.setString(5,endTime);
+            p.setString(6,location);
+            p.setString(7,activityId);
+            p.setString(8,publisherId);
             return p.executeUpdate()>0;
         }catch(Exception e){e.printStackTrace(); return false;}
     }
@@ -156,9 +154,8 @@ public class ActivityService {
                     rs.getString("description"),
                     rs.getString("publisher_id"),
                     rs.getInt("max_num"),
-                    rs.getString("event_time"),
-                    rs.getString("start_time"),
-                    rs.getString("end_time"),
+                    parseLocalDateTime(rs.getString("start_time")),
+                    parseLocalDateTime(rs.getString("end_time")),
                     rs.getLong("published_at"),
                     rs.getString("status"));
                 activity.setLocation(rs.getString("location"));
@@ -186,9 +183,8 @@ public class ActivityService {
                     rs.getString("description"),
                     rs.getString("publisher_id"),
                     rs.getInt("max_num"),
-                    rs.getString("event_time"),
-                    rs.getString("start_time"),
-                    rs.getString("end_time"),
+                    parseLocalDateTime(rs.getString("start_time")),
+                    parseLocalDateTime(rs.getString("end_time")),
                     rs.getLong("published_at"),
                     rs.getString("status"));
                 activity.setLocation(rs.getString("location"));
@@ -291,9 +287,8 @@ public class ActivityService {
                     rs.getString("description"),
                     rs.getString("publisher_id"),
                     rs.getInt("max_num"),
-                    rs.getString("event_time"),
-                    rs.getString("start_time"),
-                    rs.getString("end_time"),
+                    parseLocalDateTime(rs.getString("start_time")),
+                    parseLocalDateTime(rs.getString("end_time")),
                     rs.getLong("published_at"),
                     rs.getString("status"));
                 activity.setLocation(rs.getString("location"));
@@ -315,9 +310,8 @@ public class ActivityService {
                     rs.getString("description"),
                     rs.getString("publisher_id"),
                     rs.getInt("max_num"),
-                    rs.getString("event_time"),
-                    rs.getString("start_time"),
-                    rs.getString("end_time"),
+                    parseLocalDateTime(rs.getString("start_time")),
+                    parseLocalDateTime(rs.getString("end_time")),
                     rs.getLong("published_at"),
                     rs.getString("status"));
                 activity.setLocation(rs.getString("location"));
@@ -339,9 +333,8 @@ public class ActivityService {
                     rs.getString("description"),
                     rs.getString("publisher_id"),
                     rs.getInt("max_num"),
-                    rs.getString("event_time"),
-                    rs.getString("start_time"),
-                    rs.getString("end_time"),
+                    parseLocalDateTime(rs.getString("start_time")),
+                    parseLocalDateTime(rs.getString("end_time")),
                     rs.getLong("published_at"),
                     rs.getString("status"));
                 activity.setLocation(rs.getString("location"));
@@ -363,9 +356,8 @@ public class ActivityService {
                     rs.getString("description"),
                     rs.getString("publisher_id"),
                     rs.getInt("max_num"),
-                    rs.getString("event_time"),
-                    rs.getString("start_time"),
-                    rs.getString("end_time"),
+                    parseLocalDateTime(rs.getString("start_time")),
+                    parseLocalDateTime(rs.getString("end_time")),
                     rs.getLong("published_at"),
                     rs.getString("status"));
                 activity.setLocation(rs.getString("location"));
@@ -373,5 +365,35 @@ public class ActivityService {
             }
         }catch(Exception e){e.printStackTrace();}
         return list;
+    }
+    
+    /**
+     * 解析时间字符串为LocalDateTime对象
+     * @param timeStr 时间字符串
+     * @return LocalDateTime对象，如果解析失败则返回null
+     */
+    private LocalDateTime parseLocalDateTime(String timeStr) {
+        if (timeStr == null || timeStr.isEmpty()) {
+            return null;
+        }
+        
+        try {
+            // 尝试解析标准格式
+            return LocalDateTime.parse(timeStr);
+        } catch (Exception e) {
+            // 如果标准解析失败，尝试其他常见格式
+            try {
+                // 尝试解析日期格式 "yyyy-MM-dd HH:mm:ss"
+                return LocalDateTime.parse(timeStr, java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
+            } catch (Exception ex) {
+                // 尝试解析日期格式 "yyyy-MM-dd"
+                try {
+                    return LocalDate.parse(timeStr, java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd")).atStartOfDay();
+                } catch (Exception exc) {
+                    System.err.println("无法解析时间字符串: " + timeStr);
+                    return null;
+                }
+            }
+        }
     }
 }

@@ -45,10 +45,11 @@ public class App {
                         System.out.print("最大人数:"); String maxStr = sc.nextLine();
                         int maxNum = 0;
                         try { maxNum = Integer.parseInt(maxStr); } catch(NumberFormatException ex) { maxNum = 0; }
+                        System.out.print("活动时间(任意字符串):"); String eventTime = sc.nextLine();
                         System.out.print("开始时间(任意字符串):"); String startTime = sc.nextLine();
                         System.out.print("结束时间(任意字符串):"); String endTime = sc.nextLine();
                         System.out.print("活动地点:"); String location = sc.nextLine();
-                        if(activityService.publishActivity(n, d, currentUser.getUserId(), maxNum, startTime, endTime, location, userService))
+                        if(activityService.publishActivity(n, d, currentUser.getUserId(), maxNum, eventTime, startTime, endTime, location, userService))
                             System.out.println("发布成功");
                     } else if(op.equals("2")){
                         List<Activity> list = activityService.queryActivities();
@@ -63,10 +64,11 @@ public class App {
                         System.out.print("最大人数:"); String maxStr = sc.nextLine();
                         int maxNum = 30;
                         try { maxNum = Integer.parseInt(maxStr); } catch(NumberFormatException ex) { maxNum = 30; }
+                        System.out.print("活动时间(任意字符串):"); String eventTime = sc.nextLine();
                         System.out.print("开始时间(任意字符串):"); String startTime = sc.nextLine();
                         System.out.print("结束时间(任意字符串):"); String endTime = sc.nextLine();
                         System.out.print("活动地点:"); String location = sc.nextLine();
-                        if(activityService.updateActivity(id, n, d, currentUser.getUserId(), maxNum, startTime, endTime, location)) System.out.println("修改成功");
+                        if(activityService.updateActivity(id, n, d, currentUser.getUserId(), maxNum, eventTime, startTime, endTime, location)) System.out.println("修改成功");
                         else System.out.println("未找到活动或无权限");
                     } else if(op.equals("4")){
                         System.out.print("报名活动ID:"); String aid = sc.nextLine();

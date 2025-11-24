@@ -1,7 +1,7 @@
 /*
  Navicat Premium Data Transfer
 
- Source Server         : school_event
+ Source Server         : localhost_3306
  Source Server Type    : MySQL
  Source Server Version : 80040 (8.0.40)
  Source Host           : localhost:3306
@@ -11,7 +11,7 @@
  Target Server Version : 80040 (8.0.40)
  File Encoding         : 65001
 
- Date: 24/11/2025 09:41:38
+ Date: 24/11/2025 12:08:35
 */
 
 SET NAMES utf8mb4;
@@ -49,6 +49,8 @@ INSERT INTO `activity` VALUES ('21', '123', '123', '71137629', 2, '2025-11-22 17
 INSERT INTO `activity` VALUES ('22', '123', '123', '71137629', 2, '2025-11-23 17:45:00', '2025-11-30 21:45:00', 1763804761560, 'approved', '123');
 INSERT INTO `activity` VALUES ('23', '123', '123', '71137629', 2, '2025-11-23 17:46:00', '2025-11-29 17:46:00', 1763804787558, 'approved', '123');
 INSERT INTO `activity` VALUES ('24', '123', '123', '71137629', 2, '2025-11-22 17:49:00', '2025-11-23 17:49:00', 1763804960936, 'approved', '123');
+INSERT INTO `activity` VALUES ('25', '123', '123', '71137629', 2, '2025-11-24 12:02:00', '2025-11-28 12:02:00', 1763956941030, 'approved', '123');
+INSERT INTO `activity` VALUES ('26', '124', '124', '66859640', 2, '2025-11-24 12:02:00', '2025-11-28 12:02:00', 1763956976964, 'approved', '123');
 INSERT INTO `activity` VALUES ('4', 'party4', '4', 'c22750f6-c954-4c0a-8004-6ce5005b2350', 78, '2025-11-18 23:20:00', '2025-11-22 21:20:00', 1763472050238, 'approved', NULL);
 
 -- ----------------------------
@@ -75,6 +77,7 @@ INSERT INTO `registration` VALUES ('17e37da8-83d8-42e9-af3f-e1334b5034aa', '7113
 INSERT INTO `registration` VALUES ('1e0955c8-1f6f-4f29-b53a-a34822b08c0d', 'c22750f6-c954-4c0a-8004-6ce5005b2350', '2', '已拒绝');
 INSERT INTO `registration` VALUES ('358e4acb-488b-40e0-b694-f478ee748b5b', '4d7e420c-5c81-48ef-9d7a-b106aa8ef3f8', '20', '已通过');
 INSERT INTO `registration` VALUES ('4d7e420c-5c81-48ef-9d7a-b106aa8ef3f8', '4d7e420c-5c81-48ef-9d7a-b106aa8ef3f8', '4', '已申请');
+INSERT INTO `registration` VALUES ('57790ff5-abca-4101-9651-23e2c02ba826', '71137629', '26', '已申请');
 INSERT INTO `registration` VALUES ('62c98ea5-56d1-4102-8995-5f13822b5fe9', '4d7e420c-5c81-48ef-9d7a-b106aa8ef3f8', '16', '已通过');
 INSERT INTO `registration` VALUES ('80cbc167-c370-4b02-8482-0d90816c38f2', '71137629', '24', '已申请');
 INSERT INTO `registration` VALUES ('80f1db94-12d8-4ac8-b3e9-1fc5e124a6a4', '71137629', '20', '已申请');
