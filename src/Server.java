@@ -150,13 +150,11 @@ public class Server {
         if (t.getRequestMethod().equals("OPTIONS")) { allowCORS(t); t.sendResponseHeaders(200, -1); return; }
         String body = readReqBody(t);
         Map<String,String> map = parseUrlEncoded(body);
-        String eventTime = (map.getOrDefault("startTime", "") + " ~ " + map.getOrDefault("endTime", "")).trim();
         boolean ok = activityService.publishActivity(
             map.get("name"),
             map.get("desc"),
             map.get("publisherId"),
             Integer.parseInt(map.getOrDefault("maxNum","30")),
-            eventTime,
             map.getOrDefault("startTime",""),
             map.getOrDefault("endTime", ""),
             map.getOrDefault("location", ""),
@@ -209,8 +207,8 @@ public class Server {
             // 获取发布者用户名而不是ID
             User publisher = userService.getUserInfo(a.getPublisherId());
             String publisherName = publisher != null ? publisher.getUsername() : "未知用户";
-            sb.append(String.format("{\"activityId\":\"%s\",\"activityName\":\"%s\",\"description\":\"%s\",\"publisherId\":\"%s\",\"publisherName\":\"%s\",\"maxNum\":%d,\"count\":%d,\"eventTime\":\"%s\",\"startTime\":\"%s\",\"endTime\":\"%s\",\"status\":\"%s\",\"location\":\"%s\"}",
-                a.getActivityId(),a.getActivityName(),a.getDescription(),a.getPublisherId(),publisherName,a.getMaxNum(),count,a.getEventTime(),a.getStartTime(),a.getEndTime(),a.getStatus(),a.getLocation()));
+            sb.append(String.format("{\"activityId\":\"%s\",\"activityName\":\"%s\",\"description\":\"%s\",\"publisherId\":\"%s\",\"publisherName\":\"%s\",\"maxNum\":%d,\"count\":%d,\"startTime\":\"%s\",\"endTime\":\"%s\",\"status\":\"%s\",\"location\":\"%s\"}",
+                a.getActivityId(),a.getActivityName(),a.getDescription(),a.getPublisherId(),publisherName,a.getMaxNum(),count,a.getStartTimeString(),a.getEndTimeString(),a.getStatus(),a.getLocation()));
             if(i<acts.size()-1) sb.append(",\n");
         }
         sb.append("]");
@@ -225,7 +223,6 @@ public class Server {
         if (t.getRequestMethod().equals("OPTIONS")) { allowCORS(t); t.sendResponseHeaders(200, -1); return; }
         String body = readReqBody(t);
         Map<String,String> map = parseUrlEncoded(body);
-        String eventTime = (map.getOrDefault("startTime", "") + " ~ " + map.getOrDefault("endTime", "")).trim();
         // 确保只有活动发布者可以更新活动
         boolean ok = activityService.updateActivity(
             map.get("activityId"),
@@ -233,7 +230,6 @@ public class Server {
             map.get("desc"),
             map.get("publisherId"),
             Integer.parseInt(map.getOrDefault("maxNum","30")),
-            eventTime,
             map.getOrDefault("startTime",""),
             map.getOrDefault("endTime", ""),
             map.getOrDefault("location", "")
@@ -610,8 +606,8 @@ public class Server {
             // 获取发布者用户名而不是ID
             User publisher = userService.getUserInfo(a.getPublisherId());
             String publisherName = publisher != null ? publisher.getUsername() : "未知用户";
-            sb.append(String.format("{\"activityId\":\"%s\",\"activityName\":\"%s\",\"description\":\"%s\",\"publisherId\":\"%s\",\"publisherName\":\"%s\",\"maxNum\":%d,\"count\":%d,\"eventTime\":\"%s\",\"startTime\":\"%s\",\"endTime\":\"%s\",\"status\":\"%s\",\"location\":\"%s\"}",
-                a.getActivityId(),a.getActivityName(),a.getDescription(),a.getPublisherId(),publisherName,a.getMaxNum(),count,a.getEventTime(),a.getStartTime(),a.getEndTime(), a.getStatus(),a.getLocation()));
+            sb.append(String.format("{\"activityId\":\"%s\",\"activityName\":\"%s\",\"description\":\"%s\",\"publisherId\":\"%s\",\"publisherName\":\"%s\",\"maxNum\":%d,\"count\":%d,\"startTime\":\"%s\",\"endTime\":\"%s\",\"status\":\"%s\",\"location\":\"%s\"}",
+                a.getActivityId(),a.getActivityName(),a.getDescription(),a.getPublisherId(),publisherName,a.getMaxNum(),count,a.getStartTimeString(),a.getEndTimeString(), a.getStatus(),a.getLocation()));
             if(i<acts.size()-1) sb.append(",\n");
         }
         sb.append("]");
@@ -642,8 +638,8 @@ public class Server {
             // 获取发布者用户名而不是ID
             User publisher = userService.getUserInfo(a.getPublisherId());
             String publisherName = publisher != null ? publisher.getUsername() : "未知用户";
-            sb.append(String.format("{\"activityId\":\"%s\",\"activityName\":\"%s\",\"description\":\"%s\",\"publisherId\":\"%s\",\"publisherName\":\"%s\",\"maxNum\":%d,\"count\":%d,\"eventTime\":\"%s\",\"startTime\":\"%s\",\"endTime\":\"%s\",\"status\":\"%s\",\"location\":\"%s\"}",
-                a.getActivityId(),a.getActivityName(),a.getDescription(),a.getPublisherId(),publisherName,a.getMaxNum(),count,a.getEventTime(),a.getStartTime(),a.getEndTime(), a.getStatus(),a.getLocation()));
+            sb.append(String.format("{\"activityId\":\"%s\",\"activityName\":\"%s\",\"description\":\"%s\",\"publisherId\":\"%s\",\"publisherName\":\"%s\",\"maxNum\":%d,\"count\":%d,\"startTime\":\"%s\",\"endTime\":\"%s\",\"status\":\"%s\",\"location\":\"%s\"}",
+                a.getActivityId(),a.getActivityName(),a.getDescription(),a.getPublisherId(),publisherName,a.getMaxNum(),count,a.getStartTimeString(),a.getEndTimeString(), a.getStatus(),a.getLocation()));
             if(i<acts.size()-1) sb.append(",\n");
         }
         sb.append("]");
