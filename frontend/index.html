@@ -8,7 +8,10 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
-        body{background:#f4f8fa;}
+        body{
+            background: #f4f8fa url('/resources/images/bg1.png') no-repeat center center fixed;
+            background-size: cover;
+        }
         .centered{max-width:1280px;margin:2.5rem auto;}
         .shadow{box-shadow:0 2px 12px rgba(34,34,34,.08)!important;}
 
@@ -272,6 +275,8 @@
        .sub-menu a:hover{background:#dfefff}
        .sub-menu a.active{background:#cfe3ff;color:#0b63d6;font-weight:600}
        .sub-menu a::before{content:'•';display:inline-block;width:16px;color:#0b63d6;margin-right:6px}
+       .text-white-50 { color: rgba(255, 255, 255, 0.7) !important; }
+       .text-white-75 { color: rgba(255, 255, 255, 0.85) !important; }
     </style>
   </head>
   <body class="bg-gray-50">
@@ -901,20 +906,20 @@
       <!-- 登录 -->
       <div class="auth-card auth-minimal p-1" v-if="state.view==='login'">
         <div class="text-center mb-4">
-          <div class="auth-title fs-4 text-indigo-600 font-bold">用户登录</div>
-          <div class="auth-subtitle small text-gray-500">欢迎回来，请输入您的账户信息</div>
+          <div class="auth-title fs-4 text-white font-bold">用户登录</div>
+          <div class="auth-subtitle small text-white-50">欢迎回来，请输入您的账户信息</div>
         </div>
         <div class="mb-3">
-          <label class="form-label text-gray-700 font-medium">用户名</label>
+          <label class="form-label text-white font-medium">用户名</label>
           <input class="form-control auth-input mb-2" v-model.trim="loginForm.username" placeholder="请输入用户名">
         </div>
         <div class="mb-4">
-          <label class="form-label text-gray-700 font-medium">密码</label>
+          <label class="form-label text-white font-medium">密码</label>
           <input class="form-control auth-input mb-2" v-model.trim="loginForm.password" type="password" placeholder="请输入密码" @keyup.enter="doLogin">
         </div>
         <button class="ant-btn ant-btn-primary w-full auth-btn py-2 rounded-lg font-medium" @click="doLogin">登录</button>
-        <div class="text-center mt-3 small">
-          还没有账户？ <a href="javascript:void(0)" class="link-muted" @click="state.view='register'">立即注册</a>
+        <div class="text-center mt-3 small text-white">
+          还没有账户？ <a href="javascript:void(0)" class="text-white-75" @click="state.view='register'">立即注册</a>
         </div>
       </div>
 
