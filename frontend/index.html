@@ -1053,7 +1053,7 @@
                   <span v-else class="bg-rose-100 text-rose-800 text-xs font-semibold px-2.5 py-0.5 rounded-full">已拒绝</span>
                 </td>
                 <td>
-                    <button class="ant-btn ant-btn-primary ant-btn-sm mr-1" @click="showActivityDetail(activities.find(item => item.activityId === a.activityId))">查看</button>
+                    <button class="ant-btn ant-btn-primary ant-btn-sm mr-1" @click="showActivityDetail(a)">查看</button>
                   <button class="ant-btn ant-btn-default ant-btn-sm mr-1" @click="editAct(a)">编辑</button>
                   <button class="ant-btn ant-btn-warning ant-btn-sm mr-1" @click="openManage(a.activityId)">管理</button>
                   <button class="ant-btn ant-btn-danger ant-btn-sm" @click="deleteAct(a.activityId)">删除</button>
@@ -1070,7 +1070,7 @@
         <div v-if="myRegs.length===0" class="text-muted">暂无报名记录</div>
         <div class="overflow-x-auto">
           <table class="table table-bordered text-center align-middle">
-            <thead><tr><th>报名ID</th><th>活动ID</th><th>活动名称</th><th>状态</th></tr></thead>
+            <thead><tr><th>用户名</th><th>活动ID</th><th>活动名称</th><th>状态</th></tr></thead>
             <tbody>
               <tr v-for="r in myRegs" :key="r.registrationId">
                 <td><code>{{ r.username || r.userId }}</code></td>
@@ -1094,16 +1094,16 @@
           <span class="input-group-text">活动ID</span>
           <input class="form-control" :value="manageState.activityId" readonly />
         </div>
-        <div class="input-group mb-3">
-          <input v-model.trim="manageState.addUserId" class="form-control" placeholder="输入用户ID添加报名">
-          <button class="ant-btn ant-btn-primary" @click="addReg()">添加</button>
-        </div>
+<!--        <div class="input-group mb-3">-->
+<!--          <input v-model.trim="manageState.addUserId" class="form-control" placeholder="输入用户ID添加报名">-->
+<!--          <button class="ant-btn ant-btn-primary" @click="addReg()">添加</button>-->
+<!--        </div>-->
         <div class="overflow-x-auto">
           <table class="table align-middle">
             <thead><tr><th>报名ID</th><th>用户</th><th>状态</th><th>操作</th></tr></thead>
             <tbody>
               <tr v-for="r in manageState.regs" :key="r.registrationId">
-                <td><code>{{ r.registrationId.slice(0,8) }}</code></td>
+                <td><code>{{ r.registrationId.slice(0,12) }}</code></td>
                 <td>{{ r.username || r.userId }}</td>
                 <td>
                   <span v-if="r.status === '已申请'" class="bg-amber-100 text-amber-800 text-xs font-semibold px-2.5 py-0.5 rounded-full">已申请</span>

@@ -18,6 +18,36 @@ SET NAMES utf8mb4;
 SET FOREIGN_KEY_CHECKS = 0;
 
 -- ----------------------------
+-- Table structure for user
+-- ----------------------------
+DROP TABLE IF EXISTS `user`;
+CREATE TABLE `user`  (
+  `id` varchar(36) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL,
+  `username` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL,
+  `password` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT NULL,
+  `email` varchar(128) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL,
+  `avatar` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT NULL,
+  `role` varchar(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT 'user',
+  PRIMARY KEY (`id`),
+  UNIQUE INDEX `uk_username`(`username` ASC) USING BTREE
+) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci ROW_FORMAT = DYNAMIC;
+
+-- ----------------------------
+-- Records of user
+-- ----------------------------
+INSERT INTO `user` VALUES ('16306150', 'student1', '123', 'student1@university.edu', NULL, 'user');
+INSERT INTO `user` VALUES ('29989497', 'student2', '123', 'student2@university.edu', NULL, 'user');
+INSERT INTO `user` VALUES ('37654321', 'admin', '123', 'admin@university.edu', NULL, 'admin');
+INSERT INTO `user` VALUES ('60730593', 'student3', '123', 'student3@university.edu', NULL, 'user');
+INSERT INTO `user` VALUES ('62844214', 'student4', '123', 'student4@university.edu', NULL, 'user');
+INSERT INTO `user` VALUES ('66859640', 'student5', '123', 'student5@university.edu', NULL, 'user');
+INSERT INTO `user` VALUES ('71137629', 'teacher1', '123', 'teacher1@university.edu', NULL, 'admin');
+INSERT INTO `user` VALUES ('75598986', 'student6', '123', 'student6@university.edu', NULL, 'user');
+INSERT INTO `user` VALUES ('82345671', 'student7', '123', 'student7@university.edu', NULL, 'user');
+INSERT INTO `user` VALUES ('98765432', 'student8', '123', 'student8@university.edu', NULL, 'user');
+INSERT INTO `user` VALUES ('91234567', 'teacher2', '123', 'teacher2@university.edu', NULL, 'user');
+
+-- ----------------------------
 -- Table structure for activity
 -- ----------------------------
 DROP TABLE IF EXISTS `activity`;
@@ -40,18 +70,27 @@ CREATE TABLE `activity`  (
 -- ----------------------------
 -- Records of activity
 -- ----------------------------
-INSERT INTO `activity` VALUES ('10', 'party1', '1', 'c22750f6-c954-4c0a-8004-6ce5005b2350', 1, '2025-11-19 16:21:00', '2025-11-19 16:23:00', 1763540518048, 'approved', NULL);
-INSERT INTO `activity` VALUES ('16', 'impart', '大型室内多人活动·', '4d7e420c-5c81-48ef-9d7a-b106aa8ef3f8', 20, '2025-11-22 23:00:00', '2025-11-23 01:30:00', 1763735607162, 'approved', NULL);
-INSERT INTO `activity` VALUES ('18', '111', '111', '4d7e420c-5c81-48ef-9d7a-b106aa8ef3f8', 2, '2025-11-22 16:58:00', '2025-11-23 16:58:00', 1763801937003, 'approved', '111');
-INSERT INTO `activity` VALUES ('2', 'party2', '2', '4d7e420c-5c81-48ef-9d7a-b106aa8ef3f8', 24624, '2025-11-18 21:19:00', '2025-11-18 21:21:00', 1763471932744, 'approved', NULL);
-INSERT INTO `activity` VALUES ('20', '123', '123', '71137629', 12, '2025-11-22 17:10:00', '2025-11-23 17:10:00', 1763802620027, 'approved', '123');
-INSERT INTO `activity` VALUES ('21', '123', '123', '71137629', 2, '2025-11-22 17:23:00', '2025-11-23 17:23:00', 1763803408023, 'approved', '123');
-INSERT INTO `activity` VALUES ('22', '123', '123', '71137629', 2, '2025-11-23 17:45:00', '2025-11-30 21:45:00', 1763804761560, 'approved', '123');
-INSERT INTO `activity` VALUES ('23', '123', '123', '71137629', 2, '2025-11-23 17:46:00', '2025-11-29 17:46:00', 1763804787558, 'approved', '123');
-INSERT INTO `activity` VALUES ('24', '123', '123', '71137629', 2, '2025-11-22 17:49:00', '2025-11-23 17:49:00', 1763804960936, 'approved', '123');
-INSERT INTO `activity` VALUES ('25', '123', '123', '71137629', 2, '2025-11-24 12:02:00', '2025-11-28 12:02:00', 1763956941030, 'approved', '123');
-INSERT INTO `activity` VALUES ('26', '124', '124', '66859640', 2, '2025-11-24 12:02:00', '2025-11-28 12:02:00', 1763956976964, 'approved', '123');
-INSERT INTO `activity` VALUES ('4', 'party4', '4', 'c22750f6-c954-4c0a-8004-6ce5005b2350', 78, '2025-11-18 23:20:00', '2025-11-22 21:20:00', 1763472050238, 'approved', NULL);
+-- 按照发布时间顺序排列的活动（ID按提交顺序分配）
+-- 最早发布的活动
+INSERT INTO `activity` VALUES ('1', '迎新晚会', '迎接新生的文艺晚会表演', '98765432', 500, '2025-09-28 19:00:00', '2025-09-28 21:30:00', 1763472050238, 'approved', '学校大礼堂');
+INSERT INTO `activity` VALUES ('2', '校园歌手大赛', '年度校园歌手大赛，欢迎所有热爱音乐的同学参加', '98765432', 100, '2025-10-01 18:00:00', '2025-10-01 21:00:00', 1763540518048, 'approved', '大学生活动中心');
+INSERT INTO `activity` VALUES ('3', '科技创新讲座', '邀请知名科技企业专家分享前沿技术趋势', '37654321', 200, '2025-11-20 14:00:00', '2025-11-20 16:30:00', 1763735607162, 'approved', '图书馆报告厅');
+INSERT INTO `activity` VALUES ('4', '秋季运动会', '学校年度秋季运动会', '71137629', 300, '2025-10-15 08:00:00', '2025-10-16 17:00:00', 1763801937003, 'approved', '学校操场');
+INSERT INTO `activity` VALUES ('5', '辩论赛初赛', '校园辩论赛初赛环节', '66859640', 50, '2025-11-05 14:00:00', '2025-11-05 17:00:00', 1763802620027, 'approved', '教学楼A101');
+INSERT INTO `activity` VALUES ('6', '学术研讨会', '计算机科学前沿技术学术研讨会', '71137629', 80, '2025-11-25 08:00:00', '2025-11-28 18:00:00', 1763803408023, 'approved', '学术报告厅');
+INSERT INTO `activity` VALUES ('7', '创新创业大赛', '大学生创新创业项目路演比赛', '71137629', 100, '2025-11-25 09:00:00', '2025-11-25 17:00:00', 1763804761560, 'approved', '创新创业中心');
+INSERT INTO `activity` VALUES ('8', '志愿者招募', '社区服务志愿者招募活动', '71137629', 20, '2025-11-25 10:00:00', '2025-11-27 17:00:00', 1763804960936, 'approved', '行政楼大厅');
+INSERT INTO `activity` VALUES ('9', '读书分享会', '经典文学作品读书分享交流会', '71137629', 40, '2025-11-25 14:00:00', '2025-11-25 16:30:00', 1763956941030, 'approved', '图书馆阅览室');
+INSERT INTO `activity` VALUES ('10', '职业规划讲座', '邀请资深HR为同学们讲解职业规划', '71137629', 150, '2025-11-25 15:00:00', '2025-11-25 17:00:00', 1763956941031, 'approved', '就业指导中心');
+-- 后续发布的活动
+INSERT INTO `activity` VALUES ('11', '校园文化节', '为期三天的校园文化节活动', '37654321', 500, '2025-11-24 09:00:00', '2025-11-26 17:00:00', 1763956941032, 'approved', '全校范围');
+INSERT INTO `activity` VALUES ('12', '英语角活动', '提高英语口语交流能力的开放活动', '37654321', 30, '2025-11-27 19:00:00', '2025-11-27 21:00:00', 1763956941033, 'approved', '外语学院楼前广场');
+INSERT INTO `activity` VALUES ('13', '篮球友谊赛', '学院间篮球友谊赛，促进各学院交流', '37654321', 50, '2025-12-10 16:00:00', '2025-12-10 18:00:00', 1763956941034, 'approved', '学校体育馆');
+INSERT INTO `activity` VALUES ('14', '读书分享会二期', '经典文学作品读书分享交流会第二期', '71137629', 40, '2025-12-12 14:00:00', '2025-12-12 16:30:00', 1763956941035, 'approved', '图书馆阅览室');
+INSERT INTO `activity` VALUES ('15', '志愿者培训', '新志愿者培训活动', '71137629', 30, '2025-12-15 10:00:00', '2025-12-15 17:00:00', 1763956941036, 'approved', '行政楼大厅');
+INSERT INTO `activity` VALUES ('16', '心理健康讲座', '关注大学生心理健康，提供专业指导', '71137629', 80, '2025-12-22 14:00:00', '2025-12-22 16:00:00', 1763956941037, 'approved', '心理咨询中心');
+INSERT INTO `activity` VALUES ('17', '摄影比赛', '校园风景摄影比赛，展现校园美丽风光', '71137629', 50, '2025-12-20 09:00:00', '2025-12-20 17:00:00', 1763956941038, 'approved', '艺术学院展厅');
+INSERT INTO `activity` VALUES ('18', '毕业典礼彩排', '春季毕业典礼彩排活动', '66859640', 300, '2025-12-25 10:00:00', '2025-12-25 12:00:00', 1763956941039, 'approved', '学校大礼堂');
 
 -- ----------------------------
 -- Table structure for registration
@@ -72,47 +111,17 @@ CREATE TABLE `registration`  (
 -- ----------------------------
 -- Records of registration
 -- ----------------------------
-INSERT INTO `registration` VALUES ('16306150', '16306150', '2', '已拒绝');
-INSERT INTO `registration` VALUES ('17e37da8-83d8-42e9-af3f-e1334b5034aa', '71137629', '18', '已通过');
-INSERT INTO `registration` VALUES ('1e0955c8-1f6f-4f29-b53a-a34822b08c0d', 'c22750f6-c954-4c0a-8004-6ce5005b2350', '2', '已拒绝');
-INSERT INTO `registration` VALUES ('358e4acb-488b-40e0-b694-f478ee748b5b', '4d7e420c-5c81-48ef-9d7a-b106aa8ef3f8', '20', '已通过');
-INSERT INTO `registration` VALUES ('4d7e420c-5c81-48ef-9d7a-b106aa8ef3f8', '4d7e420c-5c81-48ef-9d7a-b106aa8ef3f8', '4', '已申请');
-INSERT INTO `registration` VALUES ('57790ff5-abca-4101-9651-23e2c02ba826', '71137629', '26', '已申请');
-INSERT INTO `registration` VALUES ('62c98ea5-56d1-4102-8995-5f13822b5fe9', '4d7e420c-5c81-48ef-9d7a-b106aa8ef3f8', '16', '已通过');
-INSERT INTO `registration` VALUES ('80cbc167-c370-4b02-8482-0d90816c38f2', '71137629', '24', '已申请');
-INSERT INTO `registration` VALUES ('80f1db94-12d8-4ac8-b3e9-1fc5e124a6a4', '71137629', '20', '已申请');
-INSERT INTO `registration` VALUES ('a48bcdd6-7030-443d-9e91-cec415b40c8c', '4d7e420c-5c81-48ef-9d7a-b106aa8ef3f8', '2', '已拒绝');
-INSERT INTO `registration` VALUES ('b3249c41-fbf1-4d83-a801-fef84a678e08', '71137629', '23', '已申请');
-INSERT INTO `registration` VALUES ('c14428bf-97e9-4e31-afc6-050dfc650d4c', '4d7e420c-5c81-48ef-9d7a-b106aa8ef3f8', '18', '已申请');
-
--- ----------------------------
--- Table structure for user
--- ----------------------------
-DROP TABLE IF EXISTS `user`;
-CREATE TABLE `user`  (
-  `id` varchar(36) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL,
-  `username` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL UNIQUE,
-  `password` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT NULL,
-  `email` varchar(128) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL,
-  `avatar` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT NULL,
-  `role` varchar(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT 'user',
-  PRIMARY KEY (`id`) USING BTREE,
-  UNIQUE INDEX `username`(`username` ASC) USING BTREE
-) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci ROW_FORMAT = DYNAMIC;
-
--- ----------------------------
--- Records of user
--- ----------------------------
-INSERT INTO `user` VALUES ('16306150', 'user3', '123', '1@qq.com', NULL, 'user');
-INSERT INTO `user` VALUES ('29989497', 'testadmin', 'testadmin', 'testadmin@example.com', NULL, 'user');
-INSERT INTO `user` VALUES ('4d7e420c-5c81-48ef-9d7a-b106aa8ef3f8', 'admin', '123', '1@qq.com', '/resources/images/4d7e420c-5c81-48ef-9d7a-b106aa8ef3f8.jpg', 'admin');
-INSERT INTO `user` VALUES ('60730593', '125', '123', '1@qq.com', NULL, 'user');
-INSERT INTO `user` VALUES ('62844214', '127', '123', '1@qq.com', NULL, 'user');
-INSERT INTO `user` VALUES ('66859640', '124', '123', '1@qq.com', NULL, 'user');
-INSERT INTO `user` VALUES ('71137629', '123', '123', '1@qq.com', NULL, 'admin');
-INSERT INTO `user` VALUES ('75598986', '126', '123', '1@qq.com', NULL, 'user');
-INSERT INTO `user` VALUES ('c0e65d7e-bf8c-4170-8dee-9e0a388ea76d', 'user2', '123', '1@qq.com', NULL, 'user');
-INSERT INTO `user` VALUES ('c22750f6-c954-4c0a-8004-6ce5005b2350', 'user', '123', '1@qq.com', NULL, 'user');
-INSERT INTO `user` VALUES ('e76c74be-918b-44d0-ac99-c795e7c4214f', 'admin1', '123', '1@qq.com', NULL, 'user');
+INSERT INTO `registration` VALUES ('100000000001', '16306150', '12', '已拒绝');
+INSERT INTO `registration` VALUES ('100000000002', '71137629', '11', '已通过');
+INSERT INTO `registration` VALUES ('100000000003', '98765432', '12', '已拒绝');
+INSERT INTO `registration` VALUES ('100000000004', '37654321', '8', '已通过');
+INSERT INTO `registration` VALUES ('100000000005', '37654321', '1', '已申请');
+INSERT INTO `registration` VALUES ('100000000006', '71137629', '18', '已申请');
+INSERT INTO `registration` VALUES ('100000000007', '37654321', '3', '已通过');
+INSERT INTO `registration` VALUES ('100000000008', '71137629', '7', '已申请');
+INSERT INTO `registration` VALUES ('100000000009', '71137629', '8', '已申请');
+INSERT INTO `registration` VALUES ('100000000010', '37654321', '12', '已拒绝');
+INSERT INTO `registration` VALUES ('100000000011', '71137629', '9', '已申请');
+INSERT INTO `registration` VALUES ('100000000012', '37654321', '11', '已申请');
 
 SET FOREIGN_KEY_CHECKS = 1;

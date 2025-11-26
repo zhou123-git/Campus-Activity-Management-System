@@ -4,8 +4,29 @@ import entity.Registration;
 import db.DB;
 import java.sql.*;
 import java.util.*;
+import java.util.concurrent.atomic.AtomicLong;
 
 public class RegistrationService {
+    // 用于生成递增的报名ID
+    private static final AtomicLong REGISTRATION_ID_COUNTER = new AtomicLong(100000000001L);
+    
+    // 初始化时从数据库中获取最大的ID值
+    static {
+        try(Connection conn = DB.getConn(); 
+            PreparedStatement p = conn.prepareStatement("SELECT MAX(CAST(id AS UNSIGNED)) FROM registration");
+            ResultSet rs = p.executeQuery()) {
+            if (rs.next()) {
+                long maxId = rs.getLong(1);
+                if (!rs.wasNull() && maxId >= 100000000001L) {
+                    REGISTRATION_ID_COUNTER.set(maxId + 1);
+                }
+            }
+        } catch(Exception e) {
+            System.err.println("初始化报名ID计数器时出错: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+    
     public int getRegistrationCountForActivity(String activityId) {
         int n = 0;
         try(Connection conn = DB.getConn(); PreparedStatement p = conn.prepareStatement("SELECT COUNT(*) FROM registration WHERE activity_id=? AND status!='已拒绝'")){
@@ -18,6 +39,25 @@ public class RegistrationService {
         }
         return n;
     }
+    
+    // 按照提交顺序生成12位递增数字ID
+    private String generateRegistrationId(Connection conn) throws SQLException {
+        while (true) {
+            long id = REGISTRATION_ID_COUNTER.getAndIncrement();
+            // 检查数据库中是否已存在该ID
+            try (PreparedStatement check = conn.prepareStatement("SELECT 1 FROM registration WHERE id = ?")) {
+                check.setLong(1, id);
+                try (ResultSet rs = check.executeQuery()) {
+                    if (!rs.next()) {
+                        // ID不存在，可以使用
+                        return String.valueOf(id);
+                    }
+                    // ID已存在，继续下一个
+                }
+            }
+        }
+    }
+    
     public boolean registerActivity(String userId, String activityId, int maxNum) {
         try(Connection conn = DB.getConn();
             PreparedStatement check = conn.prepareStatement("SELECT id FROM registration WHERE user_id=? AND activity_id=?");
@@ -36,14 +76,14 @@ public class RegistrationService {
                 System.err.println("活动 " + activityId + " 已满员");
                 return false;
             }
-            // 使用UUID生成唯一的注册ID，避免主键冲突
-            String registrationId = UUID.randomUUID().toString();
+            // 使用12位递增数字生成唯一的注册ID
+            String registrationId = generateRegistrationId(conn);
             p.setString(1, registrationId);
             p.setString(2, userId);
             p.setString(3, activityId);
             p.setString(4, "已申请");
             p.executeUpdate();
-            System.out.println("用户 " + userId + " 成功报名活动 " + activityId);
+            System.out.println("用户 " + userId + " 成功报名活动 " + activityId + "，报名ID: " + registrationId);
             return true;
         }catch(Exception e){
             System.err.println("报名活动时出错: " + e.getMessage());
