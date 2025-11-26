@@ -642,6 +642,52 @@ function closeNotification(id) {
         }
         else notify('报名失败','danger');
        };
+       
+       // 获取活动列表中报名按钮的显示文本
+       const getRegistrationButtonText = (activityId) => {
+         // 查找用户在该活动的报名状态
+         const userRegistration = (myRegs.value || []).find(reg => reg.activityId === activityId);
+         
+         // 根据报名状态返回相应的按钮文本
+         if (userRegistration) {
+           if (userRegistration.status === '已通过') {
+             return '已报名';
+           } else if (userRegistration.status === '已拒绝') {
+             return '已拒绝';
+           } else if (userRegistration.status === '已申请') {
+             return '审核中';
+           }
+         }
+         
+         // 默认返回"报名"
+         return '报名';
+       };
+       
+       // 获取活动列表中报名按钮的显示样式
+       const getRegistrationButtonClass = (activityId, activityStatus, startTime, endTime) => {
+         // 如果活动已结束或未审核通过，则使用灰色按钮
+         if (isActivityEnded(startTime, endTime) || activityStatus !== 'approved') {
+           return 'flex-1 bg-gray-400 text-white font-medium py-2 px-3 rounded-lg transition duration-200 ease-in-out transform cursor-not-allowed';
+         }
+         
+         // 查找用户在该活动的报名状态
+         const userRegistration = (myRegs.value || []).find(reg => reg.activityId === activityId);
+         
+         // 根据报名状态返回相应的按钮样式
+         if (userRegistration) {
+           if (userRegistration.status === '已通过') {
+             return 'flex-1 bg-green-500 text-white font-medium py-2 px-3 rounded-lg transition duration-200 ease-in-out transform';
+           } else if (userRegistration.status === '已拒绝') {
+             return 'flex-1 bg-red-500 text-white font-medium py-2 px-3 rounded-lg transition duration-200 ease-in-out transform';
+           } else if (userRegistration.status === '已申请') {
+             return 'flex-1 bg-yellow-500 text-white font-medium py-2 px-3 rounded-lg transition duration-200 ease-in-out transform';
+           }
+         }
+         
+         // 默认返回绿色按钮
+         return 'flex-1 bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white font-medium py-2 px-3 rounded-lg transition duration-200 ease-in-out transform hover:-translate-y-0.5';
+       };
+
        const manage = (aid)=>{ openManage(aid); };
 
       // 活动详情功能
@@ -1538,6 +1584,8 @@ function closeNotification(id) {
          getActivityStatusText,
          getActivityStatusClass,
          isActivityEnded, // 添加新函数
+         getRegistrationButtonText, // 添加新函数
+         getRegistrationButtonClass, // 添加新函数
          loadPendingActivities,
          setView,
          loadUserList, // 加载用户列表
