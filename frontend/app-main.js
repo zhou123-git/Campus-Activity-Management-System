@@ -705,7 +705,14 @@ function closeNotification(id) {
       };
       const submitPublish = async ()=>{
         pubFormMsg.value='';
-        if(!pubForm.name||!pubForm.desc||!pubForm.startTime||!pubForm.endTime||!pubForm.maxNum){ pubFormMsg.value='请填写完整'; return; }
+        if(!pubForm.name) { pubFormMsg.value='请填写完整活动名称'; return; }
+        if(!pubForm.desc) { pubFormMsg.value='请填写完整活动简介'; return; }
+        if(!pubForm.location) { pubFormMsg.value='请填写完整活动地点'; return; }
+        if(!pubForm.startTime) { pubFormMsg.value='请选择活动开始时间'; return; }
+        if(!pubForm.endTime) { pubFormMsg.value='请选择活动结束时间'; return; }
+        if(!pubForm.maxNum) { pubFormMsg.value='请填写最大人数'; return; }
+        if(pubForm.maxNum<=0) { pubFormMsg.value='最大人数必须大于0'; return; }
+
         
         // 检查活动开始时间不能小于当前时间
         const startTime = new Date(pubForm.startTime);
