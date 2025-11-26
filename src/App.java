@@ -90,7 +90,7 @@ public class App {
                         System.out.print("审核报名ID:"); String rid = sc.nextLine();
                         System.out.print("通过/拒绝 (1/0):"); String res = sc.nextLine();
                         if(registrationService.reviewRegistration(rid, res.equals("1")))
-                            System.out.println("审核成功");
+                            System.out.println("操作成功");
                     } else if (op.equals("6")) {
                         System.out.println("用户名:"+currentUser.getUsername()+", 邮箱:"+currentUser.getEmail());
                     } else if (op.equals("9")) {

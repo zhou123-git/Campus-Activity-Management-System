@@ -1054,8 +1054,8 @@
                 </td>
                 <td>
                     <button class="ant-btn ant-btn-primary ant-btn-sm mr-1" @click="showActivityDetail(a)">查看</button>
-                  <button class="ant-btn ant-btn-default ant-btn-sm mr-1" @click="editAct(a)">编辑</button>
-                  <button class="ant-btn ant-btn-warning ant-btn-sm mr-1" @click="openManage(a.activityId)">管理</button>
+                  <button class="ant-btn ant-btn-default ant-btn-sm mr-1" @click="editAct(a)" v-if="a.status === 'pending'">编辑</button>
+                  <button class="ant-btn ant-btn-warning ant-btn-sm mr-1" @click="openManage(a.activityId)" v-if="a.status === 'approved'">管理</button>
                   <button class="ant-btn ant-btn-danger ant-btn-sm" @click="deleteAct(a.activityId)">删除</button>
                 </td>
               </tr>

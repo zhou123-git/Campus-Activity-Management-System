@@ -170,10 +170,17 @@ public class ActivityService {
         }
         return null;
     }
-    // 按发布者查活动
+    // 按发布者查活动，按状态和ID排序
     public List<Activity> queryActivitiesByPublisher(String publisherId) {
         List<Activity> list = new ArrayList<>();
-        try(Connection conn = DB.getConn(); PreparedStatement p = conn.prepareStatement("SELECT * FROM activity WHERE publisher_id=? ORDER BY published_at ASC, CAST(id AS UNSIGNED) ASC")){
+        try(Connection conn = DB.getConn(); 
+            PreparedStatement p = conn.prepareStatement(
+                "SELECT * FROM activity WHERE publisher_id=? " +
+                "ORDER BY CASE status " +
+                "WHEN 'approved' THEN 1 " +
+                "WHEN 'pending' THEN 2 " +
+                "WHEN 'rejected' THEN 3 " +
+                "END, CAST(id AS UNSIGNED) DESC")) {
             p.setString(1, publisherId);
             ResultSet rs = p.executeQuery();
             while(rs.next()){
@@ -298,6 +305,17 @@ public class ActivityService {
         return list;
     }
     
+    // 查询待审核的活动数量
+    public int getPendingActivitiesCount() {
+        try(Connection conn = DB.getConn(); PreparedStatement p = conn.prepareStatement("SELECT COUNT(*) FROM activity WHERE status='pending'")){
+            ResultSet rs = p.executeQuery();
+            if (rs.next()) {
+                return rs.getInt(1);
+            }
+        }catch(Exception e){e.printStackTrace();}
+        return 0;
+    }
+
     // 查询所有活动（供管理员使用）
     public List<Activity> queryActivitiesForAdmin() {
         List<Activity> list = new ArrayList<>();

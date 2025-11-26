@@ -71,6 +71,8 @@ public class Server {
         server.createContext("/api/admin/user/delete", Server::handleAdminDeleteUser);
         server.createContext("/api/admin/user/update", Server::handleAdminUpdateUser);
         server.createContext("/api/admin/user/list", Server::handleAdminListUsers);
+        // 待审核统计信息
+        server.createContext("/api/stats/pending", Server::handlePendingStats);
         // 静态资源处理
         server.createContext("/", Server::handleStaticResource);
         server.createContext("/index.html", Server::handleStaticResource);
@@ -427,8 +429,15 @@ public class Server {
             // 获取发布者用户名而不是ID
             User publisher = userService.getUserInfo(a.getPublisherId());
             String publisherName = publisher != null ? publisher.getUsername() : "未知用户";
-            sb.append(String.format("{\"activityId\":\"%s\",\"activityName\":\"%s\",\"description\":\"%s\",\"publisherId\":\"%s\",\"publisherName\":\"%s\",\"status\":\"%s\",\"location\":\"%s\"}", 
-                a.getActivityId(),a.getActivityName(),a.getDescription(),a.getPublisherId(),publisherName,a.getStatus(),a.getLocation()));
+            
+            // 获取当前报名人数
+            int count = registrationService.getRegistrationCountForActivity(a.getActivityId());
+            
+            sb.append(String.format("{\"activityId\":\"%s\",\"activityName\":\"%s\",\"description\":\"%s\",\"publisherId\":\"%s\",\"publisherName\":\"%s\",\"status\":\"%s\",\"location\":\"%s\",\"startTime\":\"%s\",\"endTime\":\"%s\",\"count\":%d,\"maxNum\":%d}", 
+                a.getActivityId(),a.getActivityName(),a.getDescription(),a.getPublisherId(),publisherName,a.getStatus(),a.getLocation(),
+                a.getStartTime() != null ? a.getStartTime().toString() : "",
+                a.getEndTime() != null ? a.getEndTime().toString() : "",
+                count, a.getMaxNum()));
             if(i<acts.size()-1) sb.append(",\n");
         }
         sb.append("]");
@@ -1031,5 +1040,34 @@ private static String getContentType(String fileName) {
         System.out.println("返回的用户数据: " + result);
         resp(t, result);
     }
+    
+    // 获取待审核统计信息
+    static void handlePendingStats(HttpExchange t) throws IOException {
+        if (t.getRequestMethod().equals("OPTIONS")) { allowCORS(t); t.sendResponseHeaders(200, -1); return; }
+        
+        String body = readReqBody(t);
+        Map<String,String> map = parseUrlEncoded(body);
+        
+        String userId = map.get("userId");
+        User user = userService.getUserInfo(userId);
+        if (user == null) {
+            resp(t, "{\"status\":1,\"msg\":\"用户不存在\"}");
+            return;
+        }
+        
+        // 构建响应数据
+        StringBuilder responseData = new StringBuilder();
+        responseData.append("{\"status\":0,\"data\":{");
+        
+        // 对于所有用户（包括管理员），只检查需要自己审核的报名（作为活动发布者）
+        int pendingActivities = activityService.getPendingActivitiesCount();
+        int pendingRegistrations = registrationService.getPendingRegistrationsCountForPublisher(userId);
+        responseData.append("\"pendingActivities\":").append(pendingActivities);
+        responseData.append(",\"pendingRegistrations\":").append(pendingRegistrations);
+        
+        responseData.append("}}");
+        resp(t, responseData.toString());
+    }
+
 }
 

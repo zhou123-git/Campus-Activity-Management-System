@@ -301,7 +301,7 @@ function closeNotification(id) {
          }
        };
 
-       // 加载已审核通过的活动（供管理员在活动管理列表中使用）
+       // 加载已审核通过的活动（供管理员在活动管理页面使用）
        const loadApprovedActivities = async () => {
          if (!state.user || state.user.role !== 'admin') return;
          const res = await fetch(`/api/activity/approved?reviewerId=${state.user.userId}`);
@@ -566,23 +566,35 @@ function closeNotification(id) {
            await changePwd();
          }
        };
-       const apply = async (aid, maxNum, count)=>{
-         if(!state.user){ notify('请先登录','warning'); state.view='login'; return; }
-
-        // Check if activity is full
+       const apply = async (aid, maxNum, count) => {
+        if (!state.user) { notify('请先登录','warning'); return; }
+        
+        // 检查用户是否已经报名过该活动
+        await loadMyRegs(); // 先加载最新的报名信息
+        
+        // 查找用户在该活动的报名状态
+        const userRegistration = (myRegs.value || []).find(reg => reg.activityId === aid);
+        
+        // 根据报名状态显示不同的提示
+        if (userRegistration) {
+          if (userRegistration.status === '已通过') {
+            notify('已报名，无法重复报名','warning');
+            return;
+          } else if (userRegistration.status === '已拒绝') {
+            notify('报名申请被拒绝，无法重新报名','warning');
+            return;
+          } else if (userRegistration.status === '已申请') {
+            notify('已提交申请，正在审核中','warning');
+            return;
+          }
+        }
+        
+        // 检查活动是否已结束
         if (count >= maxNum) {
           notify('活动报名人数已满，无法报名','warning');
           return;
         }
 
-        // Check if user has already registered for this activity
-        await loadMyRegs();
-        const alreadyRegistered = myRegs.value.some(reg => reg.activityId === aid);
-        if (alreadyRegistered) {
-          notify('已报名','info');
-          return;
-        }
-        
         // Load registrations for this activity to check if it's full
         try {
           const regRes = await fetch(`/api/registration/list?activityId=${aid}`);
@@ -733,7 +745,7 @@ function closeNotification(id) {
       // 报名管理
       const openManage = async (aid)=>{ state.view='manage'; manageState.activityId=aid; await loadRegsVue(aid); };
       const loadRegsVue = async (aid)=>{ const r=await fetch(`/api/registration/list?activityId=${aid}`); manageState.regs=await r.json(); };
-      const reviewReg = async (rid, approve)=>{ const r=await fetch('/api/registration/review',{method:'POST',body:new URLSearchParams({registrationId:rid,approve})}); const d=await r.json(); if(d.status===0){ notify('审核成功'); await loadRegsVue(manageState.activityId); await load(); await loadMyRegs(); } else notify('操作失败','danger'); }; // 审核后刷新活动列表
+      const reviewReg = async (rid, approve)=>{ const r=await fetch('/api/registration/review',{method:'POST',body:new URLSearchParams({registrationId:rid,approve})}); const d=await r.json(); if(d.status===0){ notify('操作成功'); await loadRegsVue(manageState.activityId); await load(); await loadMyRegs(); } else notify('操作失败','danger'); }; // 审核后刷新活动列表
       const delReg = async (rid)=>{ const r=await fetch('/api/registration/delete',{method:'POST',body:new URLSearchParams({registrationId:rid})}); const d=await r.json(); if(d.status===0){ notify('已删除'); await loadRegsVue(manageState.activityId); await load(); await loadMyRegs(); } else notify('删除失败','danger'); }; // 删除后刷新活动列表
       const addReg = async ()=>{ const uid = manageState.addUserId.trim(); if(!uid){ notify('请输入用户ID','warning'); return; } const r=await fetch('/api/registration/add',{method:'POST',body:new URLSearchParams({userId:uid,activityId:manageState.activityId})}); const d=await r.json(); if(d.status===0){ notify('已添加'); manageState.addUserId=''; await loadRegsVue(manageState.activityId); await load(); await loadMyRegs(); } else notify('添加失败','danger'); }; // 添加后刷新活动列表
       
@@ -1093,6 +1105,75 @@ function closeNotification(id) {
           // 更新之前的状态
           previousMyActs.value = [...(myActs.value || [])];
           previousMyRegs.value = [...(myRegs.value || [])];
+          
+          // 获取待审核统计信息
+          try {
+            const statsRes = await fetch('/api/stats/pending', {
+              method: 'POST',
+              body: new URLSearchParams({ userId: state.user.userId })
+            });
+            const statsData = await statsRes.json();
+            
+            if (statsData.status === 0) {
+              const pendingData = statsData.data;
+              
+              // 对于管理员，检查待审核的活动和报名
+              if (state.user.role === 'admin') {
+                if (pendingData.pendingActivities > 0) {
+                  notifications.push(`有${pendingData.pendingActivities}个活动等待审核`);
+                }
+                if (pendingData.pendingRegistrations > 0) {
+                  // 获取需要审核的活动列表，以提供更具体的通知
+                  const myActivities = myActs.value || [];
+                  const approvedActivities = myActivities.filter(act => act.status === 'approved');
+                  
+                  // 统计每个活动的待审核报名数量
+                  for (const activity of approvedActivities) {
+                    try {
+                      const res = await fetch(`/api/registration/list?activityId=${activity.activityId}`);
+                      const regs = await res.json();
+                      const pendingRegs = regs.filter(r => r.status === '已申请');
+                      if (pendingRegs.length > 0) {
+                        notifications.push(`活动${activity.activityName}(${activity.activityId})有${pendingRegs.length}个报名等待审核`);
+                      }
+                    } catch (e) {
+                      console.error('获取活动报名信息失败:', e);
+                    }
+                  }
+                }
+              } else {
+                // 对于普通用户，检查待审核的报名
+                if (pendingData.pendingRegistrations > 0) {
+                  // 获取用户需要审核的活动列表，以提供更具体的通知
+                  const myActivities = myActs.value || [];
+                  const approvedActivities = myActivities.filter(act => act.status === 'approved');
+                  
+                  // 统计每个活动的待审核报名数量
+                  let totalPendingRegs = 0;
+                  for (const activity of approvedActivities) {
+                    try {
+                      const res = await fetch(`/api/registration/list?activityId=${activity.activityId}`);
+                      const regs = await res.json();
+                      const pendingRegs = regs.filter(r => r.status === '已申请');
+                      totalPendingRegs += pendingRegs.length;
+                      if (pendingRegs.length > 0) {
+                        notifications.push(`活动${activity.activityName}(${activity.activityId})有${pendingRegs.length}个报名等待审核`);
+                      }
+                    } catch (e) {
+                      console.error('获取活动报名信息失败:', e);
+                    }
+                  }
+                  
+                  // 如果没有具体活动的通知，则显示总数量
+                  if (totalPendingRegs > 0 && notifications.filter(n => n.includes('个报名等待审核')).length === 0) {
+                    notifications.push(`你有${totalPendingRegs}个报名等待审核`);
+                  }
+                }
+              }
+            }
+          } catch (statsError) {
+            console.error('获取待审核统计信息失败:', statsError);
+          }
           
           // 显示通知
           if (notifications.length > 0) {

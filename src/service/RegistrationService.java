@@ -169,4 +169,34 @@ public class RegistrationService {
         }
         return false;
     }
+
+    // 获取待审核的报名数量
+    public int getPendingRegistrationsCount() {
+        try(Connection conn = DB.getConn(); PreparedStatement p = conn.prepareStatement("SELECT COUNT(*) FROM registration WHERE status='已申请'")){
+            ResultSet rs = p.executeQuery();
+            if (rs.next()) {
+                return rs.getInt(1);
+            }
+        }catch(Exception e){e.printStackTrace();}
+        return 0;
+    }
+
+    // 获取用户需要审核的报名数量（作为活动发布者）
+    public int getPendingRegistrationsCountForPublisher(String publisherId) {
+        try(Connection conn = DB.getConn(); 
+            PreparedStatement p = conn.prepareStatement(
+                "SELECT COUNT(*) FROM registration r " +
+                "JOIN activity a ON r.activity_id = a.id " +
+                "WHERE r.status = '已申请' AND a.publisher_id = ?")) {
+            p.setString(1, publisherId);
+            ResultSet rs = p.executeQuery();
+            if (rs.next()) {
+                return rs.getInt(1);
+            }
+        } catch(Exception e) {
+            e.printStackTrace();
+        }
+        return 0;
+    }
+
 }
