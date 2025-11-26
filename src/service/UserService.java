@@ -177,6 +177,62 @@ public class UserService {
             return true;
         }catch(Exception e){e.printStackTrace();return false;}
     }
+    // 新增：更新用户名
+    public boolean updateUsername(String userId, String oldPwd, String newUsername) {
+        // 参数验证
+        if (userId == null || userId.isEmpty() || 
+            oldPwd == null || oldPwd.isEmpty() || 
+            newUsername == null || newUsername.isEmpty()) {
+            return false;
+        }
+        
+        // 用户名基本格式检查
+        if (newUsername.length() < 3 || newUsername.length() > 20) {
+            return false;
+        }
+        
+        try(Connection conn = DB.getConn()) {
+            // 验证旧密码是否正确
+            try (PreparedStatement check = conn.prepareStatement("SELECT id FROM user WHERE id=? AND password=?")) {
+                check.setString(1, userId);
+                check.setString(2, oldPwd);
+                ResultSet rs = check.executeQuery();
+                if(!rs.next()) return false; // 密码错误
+            }
+            
+            // 检查新用户名是否与当前用户名相同
+            try (PreparedStatement check = conn.prepareStatement("SELECT username FROM user WHERE id=?")) {
+                check.setString(1, userId);
+                ResultSet rs = check.executeQuery();
+                if (rs.next() && newUsername.equals(rs.getString("username"))) {
+                    // 新用户名与当前用户名相同，无需更新
+                    return true;
+                }
+            }
+            
+            // 检查新用户名是否已被其他用户使用
+            try (PreparedStatement check = conn.prepareStatement("SELECT id FROM user WHERE username=? AND id!=?")) {
+                check.setString(1, newUsername);
+                check.setString(2, userId);
+                ResultSet rs = check.executeQuery();
+                if (rs.next()) {
+                    // 用户名已被其他用户使用
+                    return false;
+                }
+            }
+            
+            // 更新用户名
+            try (PreparedStatement up = conn.prepareStatement("UPDATE user SET username=? WHERE id=?")) {
+                up.setString(1, newUsername);
+                up.setString(2, userId);
+                int rowsAffected = up.executeUpdate();
+                return rowsAffected > 0;
+            }
+        } catch(Exception e) {
+            e.printStackTrace();
+            return false;
+        }
+    }
     
     // 管理员功能：创建用户
     public int createUserByAdmin(String username, String password, String email, String role) {

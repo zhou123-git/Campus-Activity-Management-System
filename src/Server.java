@@ -351,8 +351,68 @@ public class Server {
         if (t.getRequestMethod().equals("OPTIONS")) { allowCORS(t); t.sendResponseHeaders(200, -1); return; }
         String body = readReqBody(t);
         Map<String,String> map = parseUrlEncoded(body);
-        boolean ok = userService.changePassword(map.get("userId"), map.get("oldPwd"), map.get("newPwd"));
-        resp(t, ok ? "{\"status\":0}" : "{\"status\":1,\"msg\":\"密码错误\"}");
+        
+        String userId = map.get("userId");
+        String oldPwd = map.get("oldPwd");
+        String newPwd = map.get("newPwd");
+        String newUsername = map.get("newUsername");
+        
+        // 验证必需参数
+        if (userId == null || userId.isEmpty()) {
+            resp(t, "{\"status\":1,\"msg\":\"用户ID不能为空\"}");
+            return;
+        }
+        
+        if (oldPwd == null || oldPwd.isEmpty()) {
+            resp(t, "{\"status\":1,\"msg\":\"请输入当前密码\"}");
+            return;
+        }
+        
+        // 至少要提供新用户名或新密码之一
+        if ((newUsername == null || newUsername.isEmpty()) && (newPwd == null || newPwd.isEmpty())) {
+            resp(t, "{\"status\":1,\"msg\":\"请至少填写新用户名或新密码\"}");
+            return;
+        }
+        
+        // 如果提供了新用户名，则进行更新
+        if (newUsername != null && !newUsername.isEmpty()) {
+            // 验证用户名格式
+            if (newUsername.length() < 3 || newUsername.length() > 20) {
+                resp(t, "{\"status\":1,\"msg\":\"用户名长度应在3-20个字符之间\"}");
+                return;
+            }
+            
+            // 更新用户名
+            boolean ok = userService.updateUsername(userId, oldPwd, newUsername);
+            if (!ok) {
+                resp(t, "{\"status\":1,\"msg\":\"更新用户名失败，可能是密码错误或用户名已存在\"}");
+                return;
+            }
+        }
+        
+        // 如果提供了新密码，则进行更新
+        if (newPwd != null && !newPwd.isEmpty()) {
+            // 验证密码格式
+            if (newPwd.length() < 3 || newPwd.length() > 20) {
+                resp(t, "{\"status\":1,\"msg\":\"密码长度应在3-20个字符之间\"}");
+                return;
+            }
+            
+            // 更新密码
+            boolean ok = userService.changePassword(userId, oldPwd, newPwd);
+            if (!ok) {
+                resp(t, "{\"status\":1,\"msg\":\"密码错误\"}");
+                return;
+            }
+        }
+        
+        // 准备响应，如果有新用户名则返回
+        String response = "{\"status\":0}";
+        if (newUsername != null && !newUsername.isEmpty()) {
+            response = String.format("{\"status\":0,\"newUsername\":\"%s\"}", newUsername);
+        }
+        
+        resp(t, response);
     }
     // 查询我发布的活动
     static void handleActivityMy(HttpExchange t) throws IOException {

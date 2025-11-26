@@ -130,7 +130,7 @@ public class ActivityService {
     
     // 更新活动（仅限发布者本人）
     public boolean updateActivity(String activityId, String name, String desc, String publisherId, int maxNum, String eventTime, String startTime, String endTime, String location) {
-        try(Connection conn = DB.getConn(); PreparedStatement p = conn.prepareStatement("UPDATE activity SET name=?,description=?,max_num=?,start_time=?,end_time=?,location=? WHERE id=? AND publisher_id=?")){
+        try(Connection conn = DB.getConn(); PreparedStatement p = conn.prepareStatement("UPDATE activity SET name=?,description=?,max_num=?,start_time=?,end_time=?,location=?,status='pending' WHERE id=? AND publisher_id=?")){
             p.setString(1,name);
             p.setString(2,desc);
             p.setInt(3,maxNum);

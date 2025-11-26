@@ -501,6 +501,24 @@ function closeNotification(id) {
            return;
          }
          
+         // Check if old password is provided
+         if(!pwdForm.oldPwd) {
+           notify('请输入当前密码','warning');
+           return;
+         }
+         
+         // Validate new username format if provided
+         if (pwdForm.newUsername && (pwdForm.newUsername.length < 3 || pwdForm.newUsername.length > 20)) {
+           notify('用户名长度应在3-20个字符之间','warning');
+           return;
+         }
+         
+         // Validate new password format if provided
+         if (pwdForm.newPwd && (pwdForm.newPwd.length < 3 || pwdForm.newPwd.length > 20)) {
+           notify('密码长度应在3-20个字符之间','warning');
+           return;
+         }
+         
          const p = new URLSearchParams({
            userId: state.user.userId,
            oldPwd: pwdForm.oldPwd
@@ -533,7 +551,7 @@ function closeNotification(id) {
            
            await refreshUserInfo(); 
          }
-         else notify(d.msg || '原密码错误','danger');
+         else notify(d.msg || '修改失败','danger');
        };
        
        const confirmChangePwd = async () => {
