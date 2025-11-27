@@ -461,6 +461,37 @@ function closeNotification(id) {
          } else notify(d.msg||'登录失败','danger');
        };
        const doRegister = async ()=>{
+         // 验证用户名
+         if (!regForm.username) {
+           notify('请填写完整用户名','warning');
+           return;
+         }
+         if (regForm.username.length < 3 || regForm.username.length > 20) {
+           notify('用户名长度应在3-20个字符之间','warning');
+           return;
+         }
+         
+         // 验证密码
+         if (!regForm.password) {
+           notify('请填写完整密码','warning');
+           return;
+         }
+         if (regForm.password.length < 3 || regForm.password.length > 20) {
+           notify('密码长度应在3-20个字符之间','warning');
+           return;
+         }
+         
+         // 验证邮箱
+         if (!regForm.email) {
+           notify('请填写完整邮箱','warning');
+           return;
+         }
+         const emailRegex = /^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/;
+         if (!emailRegex.test(regForm.email)) {
+           notify('邮箱格式不正确，必须包含@符号和有效域名','warning');
+           return;
+         }
+         
          const p = new URLSearchParams({username:regForm.username,password:regForm.password,email:regForm.email});
          const r = await fetch('/api/register',{method:'POST',body:p});
          const d = await r.json();

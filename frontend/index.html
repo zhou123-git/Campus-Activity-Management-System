@@ -931,14 +931,17 @@
         <div class="mb-3">
           <label class="form-label text-gray-700 font-medium">用户名</label>
           <input class="form-control auth-input mb-2" v-model.trim="regForm.username" placeholder="请输入用户名">
+          <div class="form-text small text-muted">用户名长度应在3-20个字符之间</div>
         </div>
         <div class="mb-3">
           <label class="form-label text-gray-700 font-medium">密码</label>
           <input class="form-control auth-input mb-2" v-model.trim="regForm.password" type="password" placeholder="请输入密码">
+          <div class="form-text small text-muted">密码长度应在3-20个字符之间</div>
         </div>
         <div class="mb-4">
           <label class="form-label text-gray-700 font-medium">邮箱</label>
           <input class="form-control auth-input mb-2" v-model.trim="regForm.email" type="email" placeholder="请输入邮箱地址">
+          <div class="form-text small text-muted">邮箱必须包含@符号和有效域名，如：example@domain.com</div>
         </div>
         <button class="ant-btn ant-btn-success w-full auth-btn py-2 rounded-lg font-medium" @click="doRegister">注册</button>
         <div class="text-center mt-3 small">
